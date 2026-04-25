@@ -1,0 +1,46 @@
+{
+  "name": "@huiol/stream-ui",
+  "version": "0.0.1",
+  "description": "一个轻量的 Vue 3 流式文本标签拦截渲染引擎",
+  "type": "module",
+  "main": "./dist/stream-ui.umd.cjs",
+  "module": "./dist/stream-ui.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/stream-ui.js",
+      "require": "./dist/stream-ui.umd.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vue-tsc --emitDeclarationOnly",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "vue",
+    "stream",
+    "ai",
+    "llm",
+    "renderer",
+    "headless"
+  ],
+  "author": "huiol",
+  "license": "MIT",
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  },
+  "packageManager": "pnpm@10.21.0",
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "vue": "^3.5.33",
+    "vue-tsc": "^3.2.7"
+  }
+}

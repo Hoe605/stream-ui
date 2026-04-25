@@ -1,0 +1,25 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+*.d.ts
+
+# Misc
+.DS_Store
+.idea/
+.vscode/
+*.local
+
+# Typescripts generated files
+src/**/*.d.ts
+play/**/*.d.ts
+vite.config.d.ts
