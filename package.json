@@ -4,7 +4,7 @@
   "description": "一个轻量的 Vue 3 流式文本标签拦截渲染引擎",
   "type": "module",
   "bin": {
-    "stream-ui": "./bin/stream-ui.js"
+    "stream-ui": "bin/stream-ui.js"
   },
   "main": "./dist/stream-ui.umd.cjs",
   "module": "./dist/stream-ui.js",
@@ -20,12 +20,14 @@
     "dist",
     "bin",
     "cli",
-    "src/core"
+    "src/core",
+    "README_CN.md"
   ],
   "scripts": {
     "prebuild": "rm -rf dist",
     "dev": "vite",
     "build": "vite build && vue-tsc --emitDeclarationOnly",
+    "prepack": "pnpm build",
     "preview": "vite preview"
   },
   "keywords": [

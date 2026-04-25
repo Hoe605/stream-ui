@@ -1,5 +1,7 @@
 # `@huiol/stream-ui`
 
+[English](./README.md) | 简体中文
+
 基于 Vue 3 的 LLM 输出标签化流式渲染工具。
 
 本项目支持两种使用方式：

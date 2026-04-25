@@ -1,6 +1,6 @@
 # `@huiol/stream-ui`
 
-[English](./README.md) | [简体中文](./README_CN.md)
+English | [简体中文](./README_CN.md)
 
 Vue 3 stream rendering utilities for tagged LLM output.
 
