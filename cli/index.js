@@ -1,3 +1,5 @@
+import path from 'node:path';
+import process from 'node:process';
 import { parseArgs, printUsage } from './lib/args.js';
 import { formatError, printBanner } from './lib/format.js';
 import { runInit } from './commands/init.js';
@@ -8,7 +10,7 @@ import { runList } from './commands/list.js';
 export async function run(argv = []) {
   const { positional, flags } = parseArgs(argv);
   const [command, ...rest] = positional;
-  const cwd = process.cwd();
+  const cwd = flags.cwd ? path.resolve(process.cwd(), flags.cwd) : process.cwd();
 
   if (!command || command === '--help' || command === '-h') {
     printBanner();
