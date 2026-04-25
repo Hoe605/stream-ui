@@ -3,22 +3,31 @@
   "version": "0.0.1",
   "description": "一个轻量的 Vue 3 流式文本标签拦截渲染引擎",
   "type": "module",
+  "bin": {
+    "stream-ui": "bin/stream-ui.js"
+  },
   "main": "./dist/stream-ui.umd.cjs",
   "module": "./dist/stream-ui.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/stream-ui.js",
       "require": "./dist/stream-ui.umd.cjs"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "bin",
+    "cli",
+    "src/core",
+    "README_CN.md"
   ],
   "scripts": {
+    "prebuild": "rm -rf dist",
     "dev": "vite",
     "build": "vite build && vue-tsc --emitDeclarationOnly",
+    "prepack": "pnpm build",
     "preview": "vite preview"
   },
   "keywords": [
