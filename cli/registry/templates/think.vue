@@ -24,6 +24,7 @@ defineOptions({
 defineProps<{
   content?: string
   isFinished?: boolean
+  isClosed?: boolean
 }>()
 
 const isExpanded = ref(true)

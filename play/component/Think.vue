@@ -27,6 +27,10 @@ defineProps({
     type: String,
     default: ''
   },
+  isClosed: {
+    type: Boolean,
+    default: true
+  },
   isFinished: {
     type: Boolean,
     default: false

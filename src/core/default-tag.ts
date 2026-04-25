@@ -55,6 +55,10 @@ export const DefaultTag = defineComponent({
         content: {
             type: String,
             default: ''
+        },
+        isClosed: {
+            type: Boolean,
+            default: true
         }
     },
     setup(props, { slots }) {
@@ -63,7 +67,7 @@ export const DefaultTag = defineComponent({
                 h('div', { style: DEFAULT_TAG_STYLES.header }, [
                     h('span', { style: DEFAULT_TAG_STYLES.icon }, '[]'),
                     h('span', { style: DEFAULT_TAG_STYLES.name }, props.tagName.toUpperCase()),
-                    h('span', { style: DEFAULT_TAG_STYLES.label }, 'fallback')
+                    h('span', { style: DEFAULT_TAG_STYLES.label }, props.isClosed ? 'fallback' : 'streaming')
                 ]),
                 h('div', { style: DEFAULT_TAG_STYLES.content }, slots.default ? slots.default() : props.content)
             ]);

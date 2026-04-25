@@ -15,6 +15,10 @@ defineProps({
   content: {
     type: String,
     default: ''
+  },
+  isClosed: {
+    type: Boolean,
+    default: true
   }
 });
 </script>

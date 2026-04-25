@@ -10,6 +10,7 @@ export interface StreamContainsProps {
 export interface StackNode {
     tagName: string;
     children: (StackNode | string)[];
+    isClosed?: boolean;
 }
 
 export type ComponentMap = Record<string, Component>;
@@ -119,6 +120,7 @@ export const createStreamContainsRender = (
     const renderTagNode = (
         tagName: string,
         content: string,
+        isClosed: boolean,
         index: string | number,
         componentMap: ComponentMap,
         childrenVNodes?: (VNode | string)[]
@@ -128,7 +130,7 @@ export const createStreamContainsRender = (
         const slotData = childrenVNodes ? { default: () => childrenVNodes } : { default: () => content };
 
         if (Component) {
-            return h(Component, { content, key: index }, slotData);
+            return h(Component, { content, isClosed, key: index }, slotData);
         }
 
         if (!warnedUndefinedTags.has(normalizedTagName)) {
@@ -136,7 +138,7 @@ export const createStreamContainsRender = (
             warnedUndefinedTags.add(normalizedTagName);
         }
 
-        return h(options.DefaultTag, { tagName: normalizedTagName, content, key: index }, slotData);
+        return h(options.DefaultTag, { tagName: normalizedTagName, content, isClosed, key: index }, slotData);
     };
 
     const renderFastMode = (rawText: string, componentMap: ComponentMap) => {
@@ -149,7 +151,8 @@ export const createStreamContainsRender = (
             if (match.index > lastIndex) {
                 nodes.push(h('span', { style: TEXT_NODE_STYLE }, rawText.slice(lastIndex, match.index)));
             }
-            nodes.push(renderTagNode(match[1], match[2], `fast-${match.index}`, componentMap));
+            const isClosed = match[0].toLowerCase().endsWith(`</${match[1].toLowerCase()}>`);
+            nodes.push(renderTagNode(match[1], match[2], isClosed, `fast-${match.index}`, componentMap));
             lastIndex = FAST_MODE_TAG_REGEX.lastIndex;
         }
 
@@ -161,7 +164,7 @@ export const createStreamContainsRender = (
     };
 
     const renderAccurateMode = (rawText: string, componentMap: ComponentMap) => {
-        const root: StackNode = { tagName: 'root', children: [] };
+        const root: StackNode = { tagName: 'root', children: [], isClosed: true };
         const stack: StackNode[] = [root];
         const currentWarnings: string[] = [];
         let lastIndex = 0;
@@ -179,7 +182,7 @@ export const createStreamContainsRender = (
             lastIndex = ACCURATE_MODE_TAG_REGEX.lastIndex;
 
             if (!isClose) {
-                const newNode: StackNode = { tagName, children: [] };
+                const newNode: StackNode = { tagName, children: [], isClosed: false };
                 stack[stack.length - 1].children.push(newNode);
                 stack.push(newNode);
             } else {
@@ -192,6 +195,7 @@ export const createStreamContainsRender = (
                 }
 
                 if (stackIndex > 0) {
+                    stack[stackIndex].isClosed = true;
                     if (stack.length - 1 > stackIndex) {
                         const closedTags = stack.slice(stackIndex + 1).map(node => node.tagName);
                         const msg = getCrossedTagWarning(tagName, closedTags);
@@ -241,6 +245,7 @@ export const createStreamContainsRender = (
             return renderTagNode(
                 node.tagName,
                 node.children.map(reconstructRawHTML).join(''),
+                node.isClosed ?? false,
                 `acc-${nodeCounter}`,
                 componentMap,
                 childrenNodes

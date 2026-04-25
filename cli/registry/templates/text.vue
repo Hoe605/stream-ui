@@ -11,6 +11,7 @@ defineOptions({
 
 defineProps<{
   content?: string
+  isClosed?: boolean
 }>()
 </script>
 
