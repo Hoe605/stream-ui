@@ -8,7 +8,7 @@ export default defineConfig({
   themeConfig: {
     logo: '/logo.png', // 如果有 logo 的话
     nav: [
-      { text: '指南', link: '/guide/getting-started/' },
+      { text: '指南', link: '/introduction/getting-started/' },
       { text: '组件', link: '/components/stream-contains/' },
       { text: 'GitHub', link: 'https://github.com/Hoe605/stream-ui' }
     ],
@@ -17,17 +17,16 @@ export default defineConfig({
       {
         text: '介绍',
         items: [
-          { text: '什么是 Stream UI?', link: '/guide/what-is-stream-ui/' },
-          { text: '快速开始', link: '/guide/getting-started/' },
+          { text: '什么是 Stream UI?', link: '/introduction/what-is-stream-ui/' },
+          { text: '快速开始', link: '/introduction/getting-started/' },
         ]
       },
       {
         text: '核心概念',
         items: [
-          { text: '流式渲染', link: '/guide/stream-rendering/' },
-          { text: '标签拦截', link: '/guide/tag-interception/' },
-          // { text: 'v-model:data 深度指南', link: '/guide/v-model-data/' },
-          { text: '结构化数据抽取', link: '/guide/structured-data/' },
+          { text: '流式渲染', link: '/concepts/stream-rendering/' },
+          { text: '标签拦截', link: '/concepts/tag-interception/' },
+          { text: '结构化数据抽取', link: '/concepts/structured-data/' },
         ]
       },
       {

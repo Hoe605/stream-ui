@@ -11,7 +11,7 @@ hero:
   actions:
     - theme: brand
       text: 快速开始
-      link: /guide/getting-started/
+      link: /introduction/getting-started/
     - theme: alt
       text: 在 GitHub 上查看
       link: https://github.com/Hoe605/stream-ui

@@ -40,7 +40,7 @@ const MyInputBlock = defineComponent({
   }
 })
 
-const exampleText = '系统已就绪，请填写以下信息：\n<my-input-block label="用户名"></my-input-block>\n<my-input-block label="邮箱地址"></my-input-block>'
+const exampleText = '系统已就绪，请填写以下信息：\n<my-input-block label="用户名"></my-input-block>\n<my-input-block label="邮箱地址" />'
 const text = ref(exampleText)
 const blocks = ref([])
 </script>
