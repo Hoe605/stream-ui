@@ -5,8 +5,10 @@ import { DefaultTag } from './core/default-tag';
 export const StreamContains = defineComponent({
     name: 'StreamContains',
     props: streamContainsProps,
-    setup(props) {
+    emits: ['update:data'],
+    setup(props, { emit }) {
         return createStreamContainsRender(props as StreamContainsProps, useSlots(), {
+            emit,
             DefaultTag
         });
     }

@@ -16,9 +16,17 @@ defineProps({
     type: String,
     default: ''
   },
+  block: {
+    type: Object,
+    default: null
+  },
   isClosed: {
     type: Boolean,
     default: true
+  },
+  reportData: {
+    type: Function,
+    default: null
   }
 });
 </script>

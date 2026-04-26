@@ -43,10 +43,33 @@ const message = ref('<think>drafting...</think><text>final answer</text>')
 
 Supported props passed into child components:
 
+- `block?: { id; tagName; content; isClosed; category; payload }`
 - `content?: string`
 - `isClosed?: boolean`
+- `reportData?: (payload) => void`
 
 `isClosed` is useful for streaming UIs where a tag may have started but not yet received its closing tag.
+
+You can also collect structured block state from the container:
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { StreamContains, type StreamBlockData } from '@huiol/stream-ui'
+
+const text = ref('')
+const blocks = ref<StreamBlockData[]>([])
+</script>
+
+<template>
+  <StreamContains v-model:data="blocks" :model-value="text" mode="accurate" />
+</template>
+```
+
+Each block includes a basic `category`:
+
+- `component`: rendered by a registered child component
+- `fallback`: rendered by the built-in default tag
 
 ## CLI
 

@@ -22,9 +22,18 @@ defineOptions({
 })
 
 defineProps<{
+  block?: {
+    id: string
+    tagName: string
+    content: string
+    isClosed: boolean
+    category: 'component' | 'fallback'
+    payload?: unknown
+  }
   content?: string
   isFinished?: boolean
   isClosed?: boolean
+  reportData?: (payload: unknown) => void
 }>()
 
 const isExpanded = ref(true)
