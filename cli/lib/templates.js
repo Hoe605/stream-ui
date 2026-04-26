@@ -17,8 +17,10 @@ ${defaultTagSource}
 export const StreamContains = defineComponent({
   name: 'StreamContains',
   props: streamContainsProps,
-  setup(props) {
+  emits: ['update:data'],
+  setup(props, { emit }) {
     return createStreamContainsRender(props as StreamContainsProps, useSlots(), {
+      emit,
       DefaultTag
     });
   }
@@ -51,8 +53,17 @@ defineOptions({
 })
 
 defineProps<{
+  block?: {
+    id: string
+    tagName: string
+    content: string
+    isClosed: boolean
+    category: 'component' | 'fallback'
+    payload?: unknown
+  }
   content?: string
   isClosed?: boolean
+  reportData?: (payload: unknown) => void
 }>()
 </script>
 

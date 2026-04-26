@@ -8,9 +8,12 @@ pnpm-debug.log*
 
 # Dependency directories
 node_modules/
+docs/node_modules/
 
 # Build outputs
 dist/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 *.d.ts
 
 # Misc

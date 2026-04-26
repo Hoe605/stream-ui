@@ -10,8 +10,17 @@ defineOptions({
 })
 
 defineProps<{
+  block?: {
+    id: string
+    tagName: string
+    content: string
+    isClosed: boolean
+    category: 'component' | 'fallback'
+    payload?: unknown
+  }
   content?: string
   isClosed?: boolean
+  reportData?: (payload: unknown) => void
 }>()
 </script>
 

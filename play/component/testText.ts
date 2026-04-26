@@ -33,4 +33,11 @@ const chaosMessage = `
       这是一段永远不会有闭合标签的文字，看看组件会不会崩...
 `
 
-export { thinkMessgae, textMessage, errMessage, chaosMessage }
+const inputMessage = `
+好的，为了更好地为您提供服务，请填写以下信息：
+<input label="您的名字" placeholder="请输入您的名字" />
+<input label="您的职业" placeholder="例如：前端工程师" />
+填写完成后，我会为您生成专属建议。
+`
+
+export { thinkMessgae, textMessage, errMessage, chaosMessage, inputMessage }
