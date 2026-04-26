@@ -8,7 +8,7 @@ export default defineConfig({
   themeConfig: {
     logo: '/logo.png', // 如果有 logo 的话
     nav: [
-      { text: '指南', link: '/guide/getting-started' },
+      { text: '指南', link: '/guide/getting-started/' },
       { text: '组件', link: '/components/stream-contains/' },
       { text: 'GitHub', link: 'https://github.com/Hoe605/stream-ui' }
     ],

@@ -1,6 +1,6 @@
 {
   "name": "@huiol/stream-ui",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "一个轻量的 Vue 3 流式文本标签拦截渲染引擎",
   "type": "module",
   "bin": {
