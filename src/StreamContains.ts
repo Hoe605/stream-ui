@@ -1,5 +1,6 @@
 import { defineComponent, useSlots } from 'vue';
-import { createStreamContainsRender, streamContainsProps, type StreamContainsProps } from './core/stream-contains-core';
+import { createStreamContainsRender, streamContainsProps } from './core/stream-contains-core';
+import type { StreamContainsProps } from './types';
 import { DefaultTag } from './core/default-tag';
 
 export const StreamContains = defineComponent({

@@ -4,9 +4,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { StreamContains } from '../src/index.ts'
+import { StreamContains } from 'stream-ui'
 import { mockFetchStream } from './test/out'
 
 const message = ref('')

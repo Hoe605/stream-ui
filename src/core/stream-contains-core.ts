@@ -1,32 +1,15 @@
 import { Fragment, h, isVNode, type Component, type PropType, type Slots, type VNode } from 'vue';
 
-export type RenderMode = 'fast' | 'accurate';
-export type StreamBlockCategory = 'component' | 'fallback';
-
-export interface StreamBlockData {
-    id: string;
-    tagName: string;
-    content: string;
-    isClosed: boolean;
-    category: StreamBlockCategory;
-    payload?: unknown;
-}
-
-export type StreamBlockReporter = (payload: unknown) => void;
-
-export interface StreamContainsProps {
-    modelValue: string;
-    mode: RenderMode;
-    data?: StreamBlockData[];
-}
-
-export interface StackNode {
-    tagName: string;
-    children: (StackNode | string)[];
-    isClosed?: boolean;
-}
-
-export type ComponentMap = Record<string, Component>;
+import type {
+    ComponentMap,
+    RenderMode,
+    StackNode,
+    StreamBlockCategory,
+    StreamBlockData,
+    StreamBlockReporter,
+    StreamContainsProps,
+    StreamContainsRenderOptions
+} from '../types';
 
 export const streamContainsProps = {
     modelValue: {
@@ -58,18 +41,6 @@ export const toKebabCase = (value: string) =>
         .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
         .replace(/_/g, '-')
         .toLowerCase();
-
-export interface StreamContainsRenderOptions {
-    DefaultTag: Component;
-    emit?: (event: 'update:data', value: StreamBlockData[]) => void;
-    emptyClassName?: string;
-    fastContainerClassName?: string;
-    accurateContainerClassName?: string;
-    getUndefinedTagWarning?: (tagName: string) => string;
-    getCrossedTagWarning?: (tagName: string, closedTags: string[]) => string;
-    getIsolatedClosingTagWarning?: (tagName: string) => string;
-    getParserWarningsTitle?: (count: number) => string;
-}
 
 export const buildComponentMap = (defaultSlots: unknown[]): ComponentMap => {
     const componentMap: ComponentMap = {};

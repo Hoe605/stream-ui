@@ -26,7 +26,7 @@
   "scripts": {
     "prebuild": "rm -rf dist",
     "dev": "vite",
-    "build": "vite build && vue-tsc --emitDeclarationOnly",
+    "build": "vite build && vue-tsc -p tsconfig.build.json --emitDeclarationOnly",
     "prepack": "pnpm build",
     "preview": "vite preview",
     "docs:build": "pnpm --filter stream-ui-docs build",

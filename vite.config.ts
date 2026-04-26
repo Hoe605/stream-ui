@@ -7,6 +7,7 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': resolve(__dirname, 'src'),
+            'stream-ui': resolve(__dirname, 'src/index.ts'),
         },
     },
     root: resolve(__dirname, 'play'),

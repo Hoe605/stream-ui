@@ -9,7 +9,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "ignoreDeprecations": "6.0",
     "lib": [
       "ES2020",
       "DOM",
@@ -17,12 +16,15 @@
     ],
     "skipLibCheck": true,
     "declaration": true,
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist/types",
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "stream-ui": [
+        "src/index.ts"
       ]
     },
     "types": [
@@ -32,6 +34,11 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
-    "src/**/*.vue"
+    "src/**/*.vue",
+    "docs/**/*.ts",
+    "docs/**/*.vue",
+    "docs/**/*.md",
+    "play/**/*.ts",
+    "play/**/*.vue"
   ]
 }

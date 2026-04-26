@@ -65,7 +65,6 @@ export const DefaultTag = defineComponent({
         return () =>
             h('div', { style: DEFAULT_TAG_STYLES.container }, [
                 h('div', { style: DEFAULT_TAG_STYLES.header }, [
-                    h('span', { style: DEFAULT_TAG_STYLES.icon }, '[]'),
                     h('span', { style: DEFAULT_TAG_STYLES.name }, props.tagName.toUpperCase()),
                     h('span', { style: DEFAULT_TAG_STYLES.label }, props.isClosed ? 'fallback' : 'streaming')
                 ]),

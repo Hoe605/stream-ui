@@ -1,0 +1,1 @@
+export { default as Think } from './think'
