@@ -9,7 +9,7 @@
       <div class="demo-label">渲染结果 (Tag Interception)</div>
       <div class="demo-box rendered-box">
         <StreamContains :model-value="text" mode="accurate">
-          <DocsThink />
+          <Think />
           <CustomCodeBlock />
         </StreamContains>
       </div>
@@ -19,11 +19,10 @@
 
 <script setup>
 import { ref, defineComponent, h } from 'vue'
-import { StreamContains } from 'stream-ui'
-import DocsThink from '../../components/think/DocsThink.vue'
+import { StreamContains, Think } from 'stream-ui'
 import Input from '../../.comm/Input.vue'
 
-// 演示时使用 render 函数替代 template 字符串，避免运行时编译报错 正常使用 template 即可
+// 演示时为了便于展示使用render函数，正常使用template即可
 const CustomCodeBlock = defineComponent({
   name: 'Code',
   props: ['content', 'isClosed'],

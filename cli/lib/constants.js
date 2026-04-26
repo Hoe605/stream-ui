@@ -5,9 +5,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const CLI_ROOT = path.join(__dirname, '..');
 export const REPO_ROOT = path.join(CLI_ROOT, '..');
-export const REGISTRY_DIR = path.join(CLI_ROOT, 'registry');
 export const CORE_SOURCE_PATH = path.join(REPO_ROOT, 'src', 'core', 'stream-contains-core.ts');
+
 export const DEFAULT_TAG_SOURCE_PATH = path.join(REPO_ROOT, 'src', 'core', 'default-tag.ts');
+export const COMPONENTS_SOURCE_DIR = path.join(REPO_ROOT, 'src', 'component');
+
 export const DEFAULT_TARGET_DIR = path.join('src', 'components', 'ui');
 export const COMPONENTS_CONFIG_FILE = 'components.json';
 export const DEFAULT_COMPONENTS_CONFIG = {

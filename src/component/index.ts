@@ -1,1 +1,2 @@
-export { default as Think } from './think'
+export { Think } from './think'
+export { Text } from './text'

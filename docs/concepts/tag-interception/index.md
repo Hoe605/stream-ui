@@ -6,7 +6,7 @@
 
 <preview path="./TagInterceptionDemo.vue"></preview>
 
-## 匹配逻辑探秘
+## 匹配逻辑
 
 ### 1. 自动名称转换 (Naming Convention)
 Stream UI 会自动管理组件名与标签名的映射。它同时支持 `PascalCase` 和 `kebab-case`。

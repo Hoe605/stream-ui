@@ -14,20 +14,22 @@ export const registry = {
       description: 'Collapsible reasoning panel for <think> blocks.',
       files: [
         {
-          source: 'templates/think.vue',
+          source: 'src:think/Think.vue',
           target: 'think.vue'
         }
       ]
     },
+
     text: {
       description: 'Inline emphasis wrapper for <text> blocks.',
       files: [
         {
-          source: 'templates/text.vue',
+          source: 'src:text/Text.vue',
           target: 'text.vue'
         }
       ]
     }
+
   }
 };
 

@@ -1,2 +1,3 @@
-export { StreamContains } from './StreamContains';
-export * from './types'
+export { StreamContains } from './StreamContains'
+export * from './component'
+export * from './types'

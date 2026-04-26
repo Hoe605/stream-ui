@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { REGISTRY_DIR } from './constants.js';
+import { COMPONENTS_SOURCE_DIR } from './constants.js';
 import { colorizeDiffLine } from './format.js';
 import { confirmWithUser } from './prompt.js';
 import { buildStreamContainsTemplate, buildCustomComponentTemplate } from './templates.js';
@@ -81,9 +81,13 @@ export async function getRegistryFileContent(file, context = {}) {
 
     throw new Error(`Unknown generated template "${file.source}".`);
   }
+  if (file.source.startsWith('src:')) {
+    const relativePath = file.source.slice(4);
+    const sourcePath = path.join(COMPONENTS_SOURCE_DIR, relativePath);
+    return readFile(sourcePath, 'utf8');
+  }
 
-  const sourcePath = path.join(REGISTRY_DIR, file.source);
-  return readFile(sourcePath, 'utf8');
+  throw new Error(`Invalid source path "${file.source}". All components must be sourced from "src:".`);
 }
 
 export async function writeGeneratedFile(file, cwd, targetDir, options, context = {}) {

@@ -18,7 +18,7 @@ export const streamContainsProps = {
     },
     mode: {
         type: String as PropType<RenderMode>,
-        default: 'fast'
+        default: 'accurate'
     },
     data: {
         type: Array as PropType<StreamBlockData[]>,
