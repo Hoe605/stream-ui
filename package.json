@@ -28,7 +28,9 @@
     "dev": "vite",
     "build": "vite build && vue-tsc --emitDeclarationOnly",
     "prepack": "pnpm build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docs:build": "pnpm --filter stream-ui-docs build",
+    "docs:dev": "pnpm --filter stream-ui-docs dev"
   },
   "keywords": [
     "vue",
