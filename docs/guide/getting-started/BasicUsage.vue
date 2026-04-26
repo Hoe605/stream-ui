@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { StreamContains } from 'stream-ui'
-import DocsThink from '../../components/DocsThink.vue'
+import DocsThink from '../../components/think/DocsThink.vue'
 import Input from '../../.comm/Input.vue'
 
 const textStream = ref("Hello! <think>I am thinking about how to explain this...</think> How can I help you today?")

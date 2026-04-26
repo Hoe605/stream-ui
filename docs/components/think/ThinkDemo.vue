@@ -14,7 +14,7 @@
 import { ref } from 'vue'
 import { StreamContains } from 'stream-ui'
 import DocsThink from './DocsThink.vue'
-import Input from '../.comm/Input.vue'
+import Input from '../../.comm/Input.vue'
 
 const exampleText = '你好！让我想想...<think>我会用最专业的态度回答这个问题。正在检索相关资料...</think> 很高兴为您服务。'
 const text = ref(exampleText)

@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { ElementPlusContainer } from '@vitepress-demo-preview/component'
 import '@vitepress-demo-preview/component/dist/style.css'
+import './custom.css'
 import { h, defineComponent } from 'vue'
 
 export default {

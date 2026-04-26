@@ -9,7 +9,7 @@ export default defineConfig({
     logo: '/logo.png', // 如果有 logo 的话
     nav: [
       { text: '指南', link: '/guide/getting-started' },
-      { text: '组件', link: '/components/think' },
+      { text: '组件', link: '/components/stream-contains/' },
       { text: 'GitHub', link: 'https://github.com/Hoe605/stream-ui' }
     ],
 
@@ -33,7 +33,8 @@ export default defineConfig({
       {
         text: '内置组件',
         items: [
-          { text: 'Think (思考过程)', link: '/components/think' },
+          { text: 'StreamContains (核心容器)', link: '/components/stream-contains/' },
+          { text: 'Think (思考过程效果)', link: '/components/think/' },
         ]
       }
     ],

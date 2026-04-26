@@ -20,7 +20,7 @@
 <script setup>
 import { ref, defineComponent, h } from 'vue'
 import { StreamContains } from 'stream-ui'
-import DocsThink from '../../components/DocsThink.vue'
+import DocsThink from '../../components/think/DocsThink.vue'
 import Input from '../../.comm/Input.vue'
 
 // 演示时使用 render 函数替代 template 字符串，避免运行时编译报错 正常使用 template 即可
