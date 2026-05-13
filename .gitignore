@@ -9,6 +9,7 @@ pnpm-debug.log*
 # Dependency directories
 node_modules/
 docs/node_modules/
+.pnpm-store/
 
 # Build outputs
 dist/

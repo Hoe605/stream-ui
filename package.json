@@ -29,6 +29,8 @@
     "build": "vite build && vue-tsc -p tsconfig.build.json --emitDeclarationOnly",
     "prepack": "pnpm build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "docs:build": "pnpm --filter stream-ui-docs build",
     "docs:dev": "pnpm --filter stream-ui-docs dev"
   },
@@ -49,8 +51,11 @@
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/test-utils": "^2.4.10",
+    "happy-dom": "^20.9.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.10",
+    "vitest": "^4.1.5",
     "vue": "^3.5.33",
     "vue-tsc": "^3.2.7"
   }

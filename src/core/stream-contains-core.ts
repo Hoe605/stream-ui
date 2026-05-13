@@ -86,36 +86,127 @@ export const buildComponentMap = (defaultSlots: unknown[]): ComponentMap => {
     return componentMap;
 };
 
-export const createStreamContainsRender = (
-    props: StreamContainsProps,
-    slots: Slots,
-    options: StreamContainsRenderOptions
+export const parseAccurateStream = (
+    rawText: string,
+    options: {
+        getCrossedTagWarning: (tagName: string, closedTags: string[]) => string;
+        getIsolatedClosingTagWarning: (tagName: string) => string;
+        warnedParserMessages: Set<string>;
+    }
 ) => {
-    const warnedUndefinedTags = new Set<string>();
-    const warnedParserMessages = new Set<string>();
-    const emptyClassName = options.emptyClassName ?? 'stream-content';
-    const fastContainerClassName = options.fastContainerClassName ?? 'stream-ui-container mode-fast';
-    const accurateContainerClassName = options.accurateContainerClassName ?? 'stream-ui-container mode-accurate';
-    const getUndefinedTagWarning = options.getUndefinedTagWarning
-        ?? ((tagName: string) => `[Stream-UI] 检测到未定义的标签 <${tagName}>，使用默认样式。`);
-    const getCrossedTagWarning = options.getCrossedTagWarning
-        ?? ((tagName: string, closedTags: string[]) =>
-            `[Stream-UI] 检测到标签交错：由于 </${tagName}> 闭合，强制闭合了内部未匹配的标签：<${closedTags.join('>, <')}>`);
-    const getIsolatedClosingTagWarning = options.getIsolatedClosingTagWarning
-        ?? ((tagName: string) => `[Stream-UI] 检测到孤立的闭合标签 </${tagName}>，已自动过滤。`);
-    const getParserWarningsTitle = options.getParserWarningsTitle
-        ?? ((count: number) => `[Stream-UI] Accurate Mode Parser Warnings (${count})`);
-    const blockPayloadMap = new Map<string, unknown>();
-    let latestBlocks: StreamBlockData[] = [];
-    let lastEmittedBlocks: StreamBlockData[] = [];
-    let scheduledBlocks: StreamBlockData[] | null = null;
-    let isEmitScheduled = false;
+    const root: StackNode = { tagName: 'root', children: [], isClosed: true };
+    const stack: StackNode[] = [root];
+    const currentWarnings: string[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
 
-    props.data?.forEach(block => {
+    ACCURATE_MODE_TAG_REGEX.lastIndex = 0;
+    while ((match = ACCURATE_MODE_TAG_REGEX.exec(rawText)) !== null) {
+        const fullMatch = match[0];
+        const isClose = fullMatch.startsWith('</');
+        const tagName = normalizeTagName(match[1]);
+
+        if (match.index > lastIndex) {
+            stack[stack.length - 1].children.push(rawText.slice(lastIndex, match.index));
+        }
+        lastIndex = ACCURATE_MODE_TAG_REGEX.lastIndex;
+
+        if (!isClose) {
+            const isSelfClosing = fullMatch.endsWith('/>') || fullMatch.endsWith('/ >');
+            const newNode: StackNode = { tagName, children: [], isClosed: isSelfClosing };
+            stack[stack.length - 1].children.push(newNode);
+            if (!isSelfClosing) {
+                stack.push(newNode);
+            }
+        } else {
+            let stackIndex = -1;
+            for (let i = stack.length - 1; i > 0; i--) {
+                if (stack[i].tagName === tagName) {
+                    stackIndex = i;
+                    break;
+                }
+            }
+
+            if (stackIndex > 0) {
+                stack[stackIndex].isClosed = true;
+                if (stack.length - 1 > stackIndex) {
+                    const closedTags = stack.slice(stackIndex + 1).map(node => node.tagName);
+                    const msg = options.getCrossedTagWarning(tagName, closedTags);
+                    if (!options.warnedParserMessages.has(msg)) {
+                        currentWarnings.push(msg);
+                        options.warnedParserMessages.add(msg);
+                    }
+                }
+                while (stack.length > stackIndex) stack.pop();
+            } else {
+                const msg = options.getIsolatedClosingTagWarning(tagName);
+                if (!options.warnedParserMessages.has(msg)) {
+                    currentWarnings.push(msg);
+                    options.warnedParserMessages.add(msg);
+                }
+            }
+        }
+    }
+
+    if (lastIndex < rawText.length) {
+        stack[stack.length - 1].children.push(rawText.slice(lastIndex));
+    }
+
+    return { root, currentWarnings };
+};
+
+type ResolvedRenderOptions = {
+    emptyClassName: string;
+    fastContainerClassName: string;
+    accurateContainerClassName: string;
+    getUndefinedTagWarning: (tagName: string) => string;
+    getCrossedTagWarning: (tagName: string, closedTags: string[]) => string;
+    getIsolatedClosingTagWarning: (tagName: string) => string;
+    getParserWarningsTitle: (count: number) => string;
+    DefaultTag: StreamContainsRenderOptions['DefaultTag'];
+    emit?: StreamContainsRenderOptions['emit'];
+};
+
+// Normalize options once to keep render functions focused.
+const resolveRenderOptions = (options: StreamContainsRenderOptions): ResolvedRenderOptions => ({
+    emptyClassName: options.emptyClassName ?? 'stream-content',
+    fastContainerClassName: options.fastContainerClassName ?? 'stream-ui-container mode-fast',
+    accurateContainerClassName: options.accurateContainerClassName ?? 'stream-ui-container mode-accurate',
+    getUndefinedTagWarning: options.getUndefinedTagWarning
+        ?? ((tagName: string) => `[Stream-UI] 检测到未定义的标签 <${tagName}>，使用默认样式。`),
+    getCrossedTagWarning: options.getCrossedTagWarning
+        ?? ((tagName: string, closedTags: string[]) =>
+            `[Stream-UI] 检测到标签交错：由于 </${tagName}> 闭合，强制闭合了内部未匹配的标签：<${closedTags.join('>, <')}>`),
+    getIsolatedClosingTagWarning: options.getIsolatedClosingTagWarning
+        ?? ((tagName: string) => `[Stream-UI] 检测到孤立的闭合标签 </${tagName}>，已自动过滤。`),
+    getParserWarningsTitle: options.getParserWarningsTitle
+        ?? ((count: number) => `[Stream-UI] Accurate Mode Parser Warnings (${count})`),
+    DefaultTag: options.DefaultTag,
+    emit: options.emit
+});
+
+// Seed payloads from external data to keep block updates stable across renders.
+const initBlockPayloadMap = (data?: StreamBlockData[]) => {
+    const blockPayloadMap = new Map<string, unknown>();
+
+    data?.forEach(block => {
         if (typeof block?.id === 'string' && 'payload' in block) {
             blockPayloadMap.set(block.id, block.payload);
         }
     });
+
+    return blockPayloadMap;
+};
+
+// Maintain latest blocks and debounce emit to avoid duplicate updates.
+const createBlockStore = (
+    blockPayloadMap: Map<string, unknown>,
+    emit?: StreamContainsRenderOptions['emit']
+) => {
+    let latestBlocks: StreamBlockData[] = [];
+    let lastEmittedBlocks: StreamBlockData[] = [];
+    let scheduledBlocks: StreamBlockData[] | null = null;
+    let isEmitScheduled = false;
 
     const areBlocksEqual = (left: StreamBlockData[], right: StreamBlockData[]) =>
         left.length === right.length
@@ -130,7 +221,7 @@ export const createStreamContainsRender = (
         });
 
     const emitBlocks = (blocks: StreamBlockData[]) => {
-        if (!options.emit) return;
+        if (!emit) return;
         if (areBlocksEqual(blocks, lastEmittedBlocks)) return;
         scheduledBlocks = blocks;
         if (isEmitScheduled) return;
@@ -140,8 +231,13 @@ export const createStreamContainsRender = (
             isEmitScheduled = false;
             if (!scheduledBlocks) return;
             lastEmittedBlocks = scheduledBlocks;
-            options.emit?.('update:data', scheduledBlocks);
+            emit('update:data', scheduledBlocks);
         });
+    };
+
+    const setLatestBlocks = (blocks: StreamBlockData[]) => {
+        latestBlocks = blocks;
+        emitBlocks(blocks);
     };
 
     const updateBlockPayload = (id: string, payload: unknown) => {
@@ -154,14 +250,27 @@ export const createStreamContainsRender = (
         emitBlocks(latestBlocks);
     };
 
-    const renderTagNode = (
-        tagName: string,
-        content: string,
-        isClosed: boolean,
-        index: string | number,
-        componentMap: ComponentMap,
-        childrenVNodes?: (VNode | string)[]
-    ) => {
+    return {
+        setLatestBlocks,
+        updateBlockPayload,
+        getPayload: (id: string) => blockPayloadMap.get(id)
+    };
+};
+
+// Create a renderer that resolves component/fallback and wires block reporting.
+const createTagRenderer = (
+    options: ResolvedRenderOptions,
+    warnedUndefinedTags: Set<string>,
+    componentMap: ComponentMap,
+    getPayload: (id: string) => unknown,
+    updateBlockPayload: (id: string, payload: unknown) => void
+) => (
+    tagName: string,
+    content: string,
+    isClosed: boolean,
+    index: string | number,
+    childrenVNodes?: (VNode | string)[]
+) => {
         const normalizedTagName = normalizeTagName(tagName);
         const Component = componentMap[normalizedTagName];
         const category: StreamBlockCategory = Component ? 'component' : 'fallback';
@@ -171,7 +280,7 @@ export const createStreamContainsRender = (
             content,
             isClosed,
             category,
-            payload: blockPayloadMap.get(String(index))
+            payload: getPayload(String(index))
         };
         const reportData: StreamBlockReporter = (payload) => updateBlockPayload(block.id, payload);
         const slotData = childrenVNodes ? { default: () => childrenVNodes } : { default: () => content };
@@ -181,18 +290,37 @@ export const createStreamContainsRender = (
         }
 
         if (!warnedUndefinedTags.has(normalizedTagName)) {
-            console.warn(getUndefinedTagWarning(normalizedTagName));
+            console.warn(options.getUndefinedTagWarning(normalizedTagName));
             warnedUndefinedTags.add(normalizedTagName);
         }
 
         return h(options.DefaultTag, { block, tagName: normalizedTagName, content, isClosed, reportData, key: index }, slotData);
     };
 
+export const createStreamContainsRender = (
+    props: StreamContainsProps,
+    slots: Slots,
+    options: StreamContainsRenderOptions
+) => {
+    // Shared state for warnings and block synchronization.
+    const resolvedOptions = resolveRenderOptions(options);
+    const warnedUndefinedTags = new Set<string>();
+    const warnedParserMessages = new Set<string>();
+    const blockPayloadMap = initBlockPayloadMap(props.data);
+    const blockStore = createBlockStore(blockPayloadMap, resolvedOptions.emit);
+
     const renderFastMode = (rawText: string, componentMap: ComponentMap) => {
         const nodes: (VNode | string)[] = [];
         const blocks: StreamBlockData[] = [];
         let lastIndex = 0;
         let match: RegExpExecArray | null;
+        const renderTagNode = createTagRenderer(
+            resolvedOptions,
+            warnedUndefinedTags,
+            componentMap,
+            blockStore.getPayload,
+            blockStore.updateBlockPayload
+        );
 
         FAST_MODE_TAG_REGEX.lastIndex = 0;
         while ((match = FAST_MODE_TAG_REGEX.exec(rawText)) !== null) {
@@ -210,9 +338,9 @@ export const createStreamContainsRender = (
                 content,
                 isClosed,
                 category: componentMap[normalizedTagName] ? 'component' : 'fallback',
-                payload: blockPayloadMap.get(blockId)
+                payload: blockStore.getPayload(blockId)
             });
-            nodes.push(renderTagNode(match[1], content, isClosed, blockId, componentMap));
+            nodes.push(renderTagNode(match[1], content, isClosed, blockId));
             lastIndex = FAST_MODE_TAG_REGEX.lastIndex;
         }
 
@@ -220,75 +348,23 @@ export const createStreamContainsRender = (
             nodes.push(h('span', { style: TEXT_NODE_STYLE }, rawText.slice(lastIndex)));
         }
 
-        latestBlocks = blocks;
-        emitBlocks(blocks);
-        return h('div', { class: fastContainerClassName }, nodes);
+        blockStore.setLatestBlocks(blocks);
+        return h('div', { class: resolvedOptions.fastContainerClassName }, nodes);
     };
 
     const renderAccurateMode = (rawText: string, componentMap: ComponentMap) => {
-        const root: StackNode = { tagName: 'root', children: [], isClosed: true };
-        const stack: StackNode[] = [root];
-        const currentWarnings: string[] = [];
-        let lastIndex = 0;
-        let match: RegExpExecArray | null;
-
-        ACCURATE_MODE_TAG_REGEX.lastIndex = 0;
-        while ((match = ACCURATE_MODE_TAG_REGEX.exec(rawText)) !== null) {
-            const fullMatch = match[0];
-            const isClose = fullMatch.startsWith('</');
-            const tagName = normalizeTagName(match[1]);
-
-            if (match.index > lastIndex) {
-                stack[stack.length - 1].children.push(rawText.slice(lastIndex, match.index));
-            }
-            lastIndex = ACCURATE_MODE_TAG_REGEX.lastIndex;
-
-            if (!isClose) {
-                const isSelfClosing = fullMatch.endsWith('/>') || fullMatch.endsWith('/ >');
-                const newNode: StackNode = { tagName, children: [], isClosed: isSelfClosing };
-                stack[stack.length - 1].children.push(newNode);
-                if (!isSelfClosing) {
-                    stack.push(newNode);
-                }
-            } else {
-                let stackIndex = -1;
-                for (let i = stack.length - 1; i > 0; i--) {
-                    if (stack[i].tagName === tagName) {
-                        stackIndex = i;
-                        break;
-                    }
-                }
-
-                if (stackIndex > 0) {
-                    stack[stackIndex].isClosed = true;
-                    if (stack.length - 1 > stackIndex) {
-                        const closedTags = stack.slice(stackIndex + 1).map(node => node.tagName);
-                        const msg = getCrossedTagWarning(tagName, closedTags);
-                        if (!warnedParserMessages.has(msg)) {
-                            currentWarnings.push(msg);
-                            warnedParserMessages.add(msg);
-                        }
-                    }
-                    while (stack.length > stackIndex) stack.pop();
-                } else {
-                    const msg = getIsolatedClosingTagWarning(tagName);
-                    if (!warnedParserMessages.has(msg)) {
-                        currentWarnings.push(msg);
-                        warnedParserMessages.add(msg);
-                    }
-                }
-            }
-        }
+        const { root, currentWarnings } = parseAccurateStream(rawText, {
+            getCrossedTagWarning: resolvedOptions.getCrossedTagWarning,
+            getIsolatedClosingTagWarning: resolvedOptions.getIsolatedClosingTagWarning,
+            warnedParserMessages
+        });
 
         if (currentWarnings.length > 0) {
-            console.groupCollapsed(getParserWarningsTitle(currentWarnings.length));
+            console.groupCollapsed(resolvedOptions.getParserWarningsTitle(currentWarnings.length));
             currentWarnings.forEach(msg => console.warn(msg));
             console.groupEnd();
         }
 
-        if (lastIndex < rawText.length) {
-            stack[stack.length - 1].children.push(rawText.slice(lastIndex));
-        }
 
         let nodeCounter = 0;
         const reconstructRawHTML = (node: StackNode | string): string => {
@@ -297,6 +373,13 @@ export const createStreamContainsRender = (
         };
 
         const blocks: StreamBlockData[] = [];
+        const renderTagNode = createTagRenderer(
+            resolvedOptions,
+            warnedUndefinedTags,
+            componentMap,
+            blockStore.getPayload,
+            blockStore.updateBlockPayload
+        );
         const buildVNodes = (node: StackNode | string): VNode | string => {
             if (typeof node === 'string') {
                 return h('span', { style: TEXT_NODE_STYLE }, node);
@@ -304,7 +387,7 @@ export const createStreamContainsRender = (
 
             const childrenNodes = node.children.map(buildVNodes);
             if (node.tagName === 'root') {
-                return h('div', { class: accurateContainerClassName }, childrenNodes);
+                return h('div', { class: resolvedOptions.accurateContainerClassName }, childrenNodes);
             }
 
             nodeCounter++;
@@ -316,21 +399,19 @@ export const createStreamContainsRender = (
                 content: node.children.map(reconstructRawHTML).join(''),
                 isClosed: node.isClosed ?? false,
                 category: componentMap[normalizedTagName] ? 'component' : 'fallback',
-                payload: blockPayloadMap.get(blockId)
+                payload: blockStore.getPayload(blockId)
             });
             return renderTagNode(
                 node.tagName,
                 node.children.map(reconstructRawHTML).join(''),
                 node.isClosed ?? false,
                 blockId,
-                componentMap,
                 childrenNodes
             );
         };
 
         const vnode = buildVNodes(root) as VNode;
-        latestBlocks = blocks;
-        emitBlocks(blocks);
+        blockStore.setLatestBlocks(blocks);
         return vnode;
     };
 
@@ -340,7 +421,7 @@ export const createStreamContainsRender = (
         const componentMap = buildComponentMap(defaultSlots);
 
         if (Object.keys(componentMap).length === 0 && !rawText) {
-            return h('div', { class: emptyClassName }, '');
+            return h('div', { class: resolvedOptions.emptyClassName }, '');
         }
 
         return props.mode === 'accurate'
