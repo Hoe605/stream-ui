@@ -6,7 +6,7 @@ export default defineConfig({
   title: "Stream UI",
   description: "一个轻量的 Vue 3 流式文本标签拦截渲染引擎",
   themeConfig: {
-    logo: '/logo.png', // 如果有 logo 的话
+    //logo: '/logo.png', // 如果有 logo 的话
     nav: [
       { text: '指南', link: '/introduction/getting-started/' },
       { text: '组件', link: '/components/stream-contains/' },

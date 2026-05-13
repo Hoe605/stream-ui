@@ -5,9 +5,9 @@ hero:
   name: "Stream UI"
   text: "流式文本渲染组件"
   tagline: 轻量级 Vue 3 引擎，专为 LLM 流式输出设计，支持复杂标签拦截与异步组件渲染。
-  image:
-    src: /logo.png
-    alt: Stream UI
+  # image:
+  #   src: /logo.png
+  #   alt: Stream UI
   actions:
     - theme: brand
       text: 快速开始

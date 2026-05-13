@@ -47,7 +47,7 @@
   "peerDependencies": {
     "vue": "^3.0.0"
   },
-  "packageManager": "pnpm",
+  "packageManager": "pnpm@10.21.0",
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@vitejs/plugin-vue": "^6.0.6",
