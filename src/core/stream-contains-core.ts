@@ -23,6 +23,10 @@ export const streamContainsProps = {
     data: {
         type: Array as PropType<StreamBlockData[]>,
         default: () => []
+    },
+    baseComponent: {
+        type: [Object, Function] as PropType<Component | null>,
+        default: null
     }
 };
 
@@ -262,6 +266,7 @@ const createTagRenderer = (
     options: ResolvedRenderOptions,
     warnedUndefinedTags: Set<string>,
     componentMap: ComponentMap,
+    BaseComponent: Component | null | undefined,
     getPayload: (id: string) => unknown,
     updateBlockPayload: (id: string, payload: unknown) => void
 ) => (
@@ -285,16 +290,59 @@ const createTagRenderer = (
         const reportData: StreamBlockReporter = (payload) => updateBlockPayload(block.id, payload);
         const slotData = childrenVNodes ? { default: () => childrenVNodes } : { default: () => content };
 
-        if (Component) {
-            return h(Component, { block, content, isClosed, reportData, key: index }, slotData);
-        }
+        const renderedBlock = Component
+            ? h(Component, { block, content, isClosed, reportData, key: index }, slotData)
+            : null;
 
-        if (!warnedUndefinedTags.has(normalizedTagName)) {
+        if (!Component && !warnedUndefinedTags.has(normalizedTagName)) {
             console.warn(options.getUndefinedTagWarning(normalizedTagName));
             warnedUndefinedTags.add(normalizedTagName);
         }
 
-        return h(options.DefaultTag, { block, tagName: normalizedTagName, content, isClosed, reportData, key: index }, slotData);
+        const resolvedBlock = renderedBlock
+            ?? h(options.DefaultTag, { block, tagName: normalizedTagName, content, isClosed, reportData, key: index }, slotData);
+
+        if (!BaseComponent) return resolvedBlock;
+
+        return h(
+            BaseComponent,
+            { block, tagName: normalizedTagName, content, isClosed, reportData, key: `base-${index}` },
+            {
+                default: () => [resolvedBlock],
+                raw: () => content
+            }
+        );
+    };
+
+const createTextRenderer = (
+    BaseComponent: Component | null | undefined,
+    getPayload: (id: string) => unknown,
+    updateBlockPayload: (id: string, payload: unknown) => void
+) => (
+    content: string,
+    index: string | number
+) => {
+        const block: StreamBlockData = {
+            id: String(index),
+            tagName: 'text',
+            content,
+            isClosed: true,
+            category: 'text',
+            payload: getPayload(String(index))
+        };
+        const reportData: StreamBlockReporter = (payload) => updateBlockPayload(block.id, payload);
+        const textNode = h('span', { style: TEXT_NODE_STYLE, key: index }, content);
+
+        if (!BaseComponent) return textNode;
+
+        return h(
+            BaseComponent,
+            { block, tagName: block.tagName, content, isClosed: true, reportData, key: `base-${index}` },
+            {
+                default: () => [textNode],
+                raw: () => content
+            }
+        );
     };
 
 export const createStreamContainsRender = (
@@ -318,6 +366,12 @@ export const createStreamContainsRender = (
             resolvedOptions,
             warnedUndefinedTags,
             componentMap,
+            props.baseComponent,
+            blockStore.getPayload,
+            blockStore.updateBlockPayload
+        );
+        const renderTextNode = createTextRenderer(
+            props.baseComponent,
             blockStore.getPayload,
             blockStore.updateBlockPayload
         );
@@ -325,7 +379,17 @@ export const createStreamContainsRender = (
         FAST_MODE_TAG_REGEX.lastIndex = 0;
         while ((match = FAST_MODE_TAG_REGEX.exec(rawText)) !== null) {
             if (match.index > lastIndex) {
-                nodes.push(h('span', { style: TEXT_NODE_STYLE }, rawText.slice(lastIndex, match.index)));
+                const blockId = `text-fast-${lastIndex}`;
+                const content = rawText.slice(lastIndex, match.index);
+                blocks.push({
+                    id: blockId,
+                    tagName: 'text',
+                    content,
+                    isClosed: true,
+                    category: 'text',
+                    payload: blockStore.getPayload(blockId)
+                });
+                nodes.push(renderTextNode(content, blockId));
             }
             const isSelfClosing = typeof match[2] === 'string' && match[2].startsWith('/>');
             const isClosed = isSelfClosing || match[0].toLowerCase().endsWith(`</${match[1].toLowerCase()}>`);
@@ -345,7 +409,17 @@ export const createStreamContainsRender = (
         }
 
         if (lastIndex < rawText.length) {
-            nodes.push(h('span', { style: TEXT_NODE_STYLE }, rawText.slice(lastIndex)));
+            const blockId = `text-fast-${lastIndex}`;
+            const content = rawText.slice(lastIndex);
+            blocks.push({
+                id: blockId,
+                tagName: 'text',
+                content,
+                isClosed: true,
+                category: 'text',
+                payload: blockStore.getPayload(blockId)
+            });
+            nodes.push(renderTextNode(content, blockId));
         }
 
         blockStore.setLatestBlocks(blocks);
@@ -367,6 +441,7 @@ export const createStreamContainsRender = (
 
 
         let nodeCounter = 0;
+        let textCounter = 0;
         const reconstructRawHTML = (node: StackNode | string): string => {
             if (typeof node === 'string') return node;
             return `<${node.tagName}>${node.children.map(reconstructRawHTML).join('')}</${node.tagName}>`;
@@ -377,12 +452,28 @@ export const createStreamContainsRender = (
             resolvedOptions,
             warnedUndefinedTags,
             componentMap,
+            props.baseComponent,
+            blockStore.getPayload,
+            blockStore.updateBlockPayload
+        );
+        const renderTextNode = createTextRenderer(
+            props.baseComponent,
             blockStore.getPayload,
             blockStore.updateBlockPayload
         );
         const buildVNodes = (node: StackNode | string): VNode | string => {
             if (typeof node === 'string') {
-                return h('span', { style: TEXT_NODE_STYLE }, node);
+                textCounter++;
+                const blockId = `text-acc-${textCounter}`;
+                blocks.push({
+                    id: blockId,
+                    tagName: 'text',
+                    content: node,
+                    isClosed: true,
+                    category: 'text',
+                    payload: blockStore.getPayload(blockId)
+                });
+                return renderTextNode(node, blockId);
             }
 
             const childrenNodes = node.children.map(buildVNodes);

@@ -27,6 +27,7 @@ export default defineConfig({
           { text: '流式渲染', link: '/concepts/stream-rendering/' },
           { text: '标签拦截', link: '/concepts/tag-interception/' },
           { text: '结构化数据抽取', link: '/concepts/structured-data/' },
+          { text: '公共 Base 组件扩展', link: '/concepts/base-component/' },
         ]
       },
       {

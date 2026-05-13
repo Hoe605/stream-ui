@@ -19,6 +19,14 @@ const DefaultTag = defineComponent({
     }
 });
 
+const BaseComponent = defineComponent({
+    name: 'BaseComponent',
+    props: ['block', 'tagName', 'content', 'isClosed', 'reportData'],
+    render() {
+        return h('section', { class: `base-${this.tagName}` }, this.$slots.default?.());
+    }
+});
+
 describe('stream-contains-core', () => {
     describe('buildComponentMap', () => {
         it('应该能从插槽中正确映射组件', () => {
@@ -136,6 +144,94 @@ describe('stream-contains-core', () => {
             
             const textNode = vnode.children[0];
             expect(textNode.props.style).toEqual({ whiteSpace: 'pre-wrap' });
+        });
+
+        it('纯文本内容应该能用 baseComponent 包装', () => {
+            const props = {
+                modelValue: 'plain **markdown** text',
+                mode: 'accurate' as const,
+                baseComponent: BaseComponent
+            };
+            const render = createStreamContainsRender(props, {}, options);
+            const vnode = render();
+            const baseVNode = vnode.children[0];
+            const childVNode = baseVNode.children.default()[0];
+
+            expect(baseVNode.type).toBe(BaseComponent);
+            expect(baseVNode.props.tagName).toBe('text');
+            expect(baseVNode.props.block.category).toBe('text');
+            expect(baseVNode.props.content).toBe('plain **markdown** text');
+            expect(childVNode.type).toBe('span');
+        });
+
+        it('纯文本内容应该同步到结构化数据', async () => {
+            const props = { modelValue: 'plain text', mode: 'accurate' as const };
+            const render = createStreamContainsRender(props, {}, options);
+            render();
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(emit).toHaveBeenCalledWith('update:data', [
+                expect.objectContaining({
+                    tagName: 'text',
+                    content: 'plain text',
+                    isClosed: true,
+                    category: 'text'
+                })
+            ]);
+        });
+
+        it('应该能用 baseComponent 包装已注册组件', () => {
+            const props = {
+                modelValue: '<mock-component>world</mock-component>',
+                mode: 'accurate' as const,
+                baseComponent: BaseComponent
+            };
+            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+            const vnode = render();
+            const baseVNode = vnode.children[0];
+            const childVNode = baseVNode.children.default()[0];
+
+            expect(baseVNode.type).toBe(BaseComponent);
+            expect(baseVNode.props.tagName).toBe('mock-component');
+            expect(childVNode.type).toBe(MockComponent);
+            expect(childVNode.props.block.category).toBe('component');
+        });
+
+        it('应该能用 baseComponent 包装 fallback 组件', () => {
+            const props = {
+                modelValue: '<unknown>tag content</unknown>',
+                mode: 'accurate' as const,
+                baseComponent: BaseComponent
+            };
+            const render = createStreamContainsRender(props, {}, options);
+            const vnode = render();
+            const baseVNode = vnode.children[0];
+            const childVNode = baseVNode.children.default()[0];
+
+            expect(baseVNode.type).toBe(BaseComponent);
+            expect(baseVNode.props.tagName).toBe('unknown');
+            expect(childVNode.type).toBe(DefaultTag);
+            expect(childVNode.props.block.category).toBe('fallback');
+        });
+
+        it('baseComponent 应该能通过 reportData 更新 payload', async () => {
+            const props = {
+                modelValue: '<mock />',
+                mode: 'accurate' as const,
+                baseComponent: BaseComponent
+            };
+            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+            const vnode = render();
+            const baseVNode = vnode.children[0];
+
+            baseVNode.props.reportData({ rendered: 'markdown' });
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(emit).toHaveBeenLastCalledWith('update:data', expect.arrayContaining([
+                expect.objectContaining({ id: baseVNode.props.block.id, payload: { rendered: 'markdown' } })
+            ]));
         });
     });
 });

@@ -1,7 +1,7 @@
 import type { Component } from 'vue';
 
 export type RenderMode = 'fast' | 'accurate';
-export type StreamBlockCategory = 'component' | 'fallback';
+export type StreamBlockCategory = 'component' | 'fallback' | 'text';
 
 export interface StreamBlockData {
     id: string;
@@ -18,6 +18,7 @@ export interface StreamContainsProps {
     modelValue: string;
     mode: RenderMode;
     data?: StreamBlockData[];
+    baseComponent?: Component | null;
 }
 
 export interface StackNode {
@@ -27,6 +28,14 @@ export interface StackNode {
 }
 
 export type ComponentMap = Record<string, Component>;
+
+export interface StreamBlockBaseProps {
+    block: StreamBlockData;
+    tagName: string;
+    content: string;
+    isClosed: boolean;
+    reportData: StreamBlockReporter;
+}
 
 export interface StreamContainsRenderOptions {
     DefaultTag: Component;

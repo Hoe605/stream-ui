@@ -70,6 +70,45 @@ Each block includes a basic `category`:
 
 - `component`: rendered by a registered child component
 - `fallback`: rendered by the built-in default tag
+- `text`: plain text outside tags
+
+## Shared Base Component
+
+Use `baseComponent` when every rendered block needs the same behavior, such as markdown, LaTeX, analytics, copy actions, or shared layout. It wraps registered components, fallback tags, and plain text outside tags. The package does not ship markdown or LaTeX renderers; the base component is the user-owned extension point.
+
+```vue
+<script setup lang="ts">
+import { StreamContains } from '@huiol/stream-ui'
+import MarkdownBase from './components/MarkdownBase.vue'
+import Think from './components/ui/think.vue'
+import Text from './components/ui/text.vue'
+</script>
+
+<template>
+  <StreamContains :model-value="message" :base-component="MarkdownBase">
+    <Think />
+    <Text />
+  </StreamContains>
+</template>
+```
+
+The base component receives the same block props plus `tagName`, and its default slot is the originally resolved component, fallback, or text span:
+
+```vue
+<template>
+  <div class="stream-block-base" :data-tag="tagName">
+    <slot />
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { StreamBlockBaseProps } from '@huiol/stream-ui'
+
+defineProps<StreamBlockBaseProps>()
+</script>
+```
+
+If you want the base component to fully control rendering, ignore the default slot and render from `content` instead.
 
 ## CLI
 

@@ -48,6 +48,44 @@ const message = ref('<think>正在思考...</think><text>最终回答内容</tex
 
 `isClosed` 在流式 UI 中非常有用，可以判断某个标签是正在输出中还是已经接收到了闭合标签。
 
+## 公共 Base 组件
+
+当所有渲染出来的区块都需要同一类能力时，可以使用 `baseComponent`，例如 markdown、LaTeX、埋点、复制按钮或统一布局。它会包裹已注册组件、fallback 标签和标签之外的普通文本。组件库本身不内置 markdown/LaTeX 渲染器；base 组件是留给用户自行接入这些能力的扩展点。
+
+```vue
+<script setup lang="ts">
+import { StreamContains } from '@huiol/stream-ui'
+import MarkdownBase from './components/MarkdownBase.vue'
+import Think from './components/ui/think.vue'
+import Text from './components/ui/text.vue'
+</script>
+
+<template>
+  <StreamContains :model-value="message" :base-component="MarkdownBase">
+    <Think />
+    <Text />
+  </StreamContains>
+</template>
+```
+
+base 组件会收到同样的 block props，并额外收到 `tagName`。默认插槽是原本解析出的组件、fallback 或文本 `span`：
+
+```vue
+<template>
+  <div class="stream-block-base" :data-tag="tagName">
+    <slot />
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { StreamBlockBaseProps } from '@huiol/stream-ui'
+
+defineProps<StreamBlockBaseProps>()
+</script>
+```
+
+如果希望 base 组件完全接管渲染，可以忽略默认插槽，直接基于 `content` 渲染。
+
 ## CLI 命令
 
 初始化本地组件配置：

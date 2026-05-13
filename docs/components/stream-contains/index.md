@@ -19,6 +19,7 @@ import { StreamContains } from '@huiol/stream-ui'
 | `model-value` / `v-model` | `string` | `''` | **必填**。待解析的原始流式文本（通常是来自 LLM 的输出）。 |
 | `mode` | `'fast' \| 'accurate' `| `'fast'` | 渲染模式。建议在涉及交互组件时使用 `accurate`。 |
 | `v-model:data` (blocks) | `StreamBlockData[]` | `[]` | **可选**。双向绑定解析出的结构化数据列表。 |
+| `base-component` | `Component \| null` | `null` | **可选**。统一包裹所有标签块、fallback 和普通文本的基础组件。 |
 
 ### 模式区别 (Render Mode)
 - **`fast` (默认模式)**: 基于正则表达式的扁平化解析。速度极快，适用于大多数简单的流式输出和非嵌套标签。
@@ -68,7 +69,7 @@ interface StreamBlockData {
   tagName: string;     // 匹配到的标签名（不带括号）
   content: string;     // 标签内部的原始内容
   isClosed: boolean;   // 该标签是否已经完全输出完毕
-  category: 'component' | 'fallback'; // 标识是命中自定义组件还是普通降级标签
+  category: 'component' | 'fallback' | 'text'; // 标识自定义组件、普通降级标签或标签外文本
   payload?: any;       // 存储由子组件通过 reportData 上报的自定义交互数据
 }
 ```
