@@ -4,6 +4,7 @@ import type {
     ComponentMap,
     RenderMode,
     StackNode,
+    StreamBlockAttrs,
     StreamBlockCategory,
     StreamBlockData,
     StreamBlockReporter,
@@ -37,6 +38,11 @@ export const FAST_MODE_TAG_REGEX = new RegExp(
     'gi'
 );
 export const ACCURATE_MODE_TAG_REGEX = new RegExp(`</?(${TAG_NAME_PATTERN})(?:\\s+[^>]*)?>`, 'g');
+export const ATTR_NAME_PATTERN = '[^\\s=/>]+';
+export const ATTR_REGEX = new RegExp(
+    `(${ATTR_NAME_PATTERN})(?:\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>` + '`' + `]+)))?`,
+    'g'
+);
 
 export const normalizeTagName = (value: string) => value.toLowerCase();
 
@@ -45,6 +51,46 @@ export const toKebabCase = (value: string) =>
         .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
         .replace(/_/g, '-')
         .toLowerCase();
+
+export const parseTagAttrs = (tagSource: string): StreamBlockAttrs => {
+    const attrsSource = tagSource
+        .replace(/^<\/?\s*[A-Za-z][\w-]*/, '')
+        .replace(/\/?\s*>$/, '');
+    const attrs: StreamBlockAttrs = {};
+    let match: RegExpExecArray | null;
+
+    ATTR_REGEX.lastIndex = 0;
+    while ((match = ATTR_REGEX.exec(attrsSource)) !== null) {
+        const [, name, doubleQuoted, singleQuoted, unquoted] = match;
+        if (!name) continue;
+        attrs[name] = doubleQuoted ?? singleQuoted ?? unquoted ?? true;
+    }
+
+    return attrs;
+};
+
+export const getOpeningTagSource = (tagSource: string) => {
+    const match = tagSource.match(/^<[^>]+>/);
+    return match?.[0] ?? '';
+};
+
+const hasAttrs = (attrs?: StreamBlockAttrs) => !!attrs && Object.keys(attrs).length > 0;
+
+const areAttrsEqual = (left?: StreamBlockAttrs, right?: StreamBlockAttrs) => {
+    if (!hasAttrs(left) && !hasAttrs(right)) return true;
+    if (!left || !right) return false;
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    return leftKeys.length === rightKeys.length
+        && leftKeys.every(key => left[key] === right[key]);
+};
+
+const serializeAttrs = (attrs?: StreamBlockAttrs) => {
+    if (!attrs || !hasAttrs(attrs)) return '';
+    return Object.entries(attrs)
+        .map(([key, value]) => value === true ? key : `${key}="${String(value).replace(/"/g, '&quot;')}"`)
+        .join(' ');
+};
 
 export const buildComponentMap = (defaultSlots: unknown[]): ComponentMap => {
     const componentMap: ComponentMap = {};
@@ -117,7 +163,13 @@ export const parseAccurateStream = (
 
         if (!isClose) {
             const isSelfClosing = fullMatch.endsWith('/>') || fullMatch.endsWith('/ >');
-            const newNode: StackNode = { tagName, children: [], isClosed: isSelfClosing };
+            const attrs = parseTagAttrs(fullMatch);
+            const newNode: StackNode = {
+                tagName,
+                attrs: hasAttrs(attrs) ? attrs : undefined,
+                children: [],
+                isClosed: isSelfClosing
+            };
             stack[stack.length - 1].children.push(newNode);
             if (!isSelfClosing) {
                 stack.push(newNode);
@@ -221,6 +273,7 @@ const createBlockStore = (
                 && block.content === other?.content
                 && block.isClosed === other?.isClosed
                 && block.category === other?.category
+                && areAttrsEqual(block.attrs, other?.attrs)
                 && block.payload === other?.payload;
         });
 
@@ -271,6 +324,7 @@ const createTagRenderer = (
     updateBlockPayload: (id: string, payload: unknown) => void
 ) => (
     tagName: string,
+    attrs: StreamBlockAttrs | undefined,
     content: string,
     isClosed: boolean,
     index: string | number,
@@ -282,6 +336,7 @@ const createTagRenderer = (
         const block: StreamBlockData = {
             id: String(index),
             tagName: normalizedTagName,
+            attrs: hasAttrs(attrs) ? attrs : undefined,
             content,
             isClosed,
             category,
@@ -291,7 +346,7 @@ const createTagRenderer = (
         const slotData = childrenVNodes ? { default: () => childrenVNodes } : { default: () => content };
 
         const renderedBlock = Component
-            ? h(Component, { block, content, isClosed, reportData, key: index }, slotData)
+            ? h(Component, { block, attrs, content, isClosed, reportData, key: index }, slotData)
             : null;
 
         if (!Component && !warnedUndefinedTags.has(normalizedTagName)) {
@@ -300,13 +355,13 @@ const createTagRenderer = (
         }
 
         const resolvedBlock = renderedBlock
-            ?? h(options.DefaultTag, { block, tagName: normalizedTagName, content, isClosed, reportData, key: index }, slotData);
+            ?? h(options.DefaultTag, { block, tagName: normalizedTagName, attrs, content, isClosed, reportData, key: index }, slotData);
 
         if (!BaseComponent) return resolvedBlock;
 
         return h(
             BaseComponent,
-            { block, tagName: normalizedTagName, content, isClosed, reportData, key: `base-${index}` },
+            { block, tagName: normalizedTagName, attrs, content, isClosed, reportData, key: `base-${index}` },
             {
                 default: () => [resolvedBlock],
                 raw: () => content
@@ -395,16 +450,18 @@ export const createStreamContainsRender = (
             const isClosed = isSelfClosing || match[0].toLowerCase().endsWith(`</${match[1].toLowerCase()}>`);
             const blockId = `fast-${match.index}`;
             const normalizedTagName = normalizeTagName(match[1]);
+            const attrs = parseTagAttrs(getOpeningTagSource(match[0]));
             const content = match[3] || '';
             blocks.push({
                 id: blockId,
                 tagName: normalizedTagName,
+                attrs: hasAttrs(attrs) ? attrs : undefined,
                 content,
                 isClosed,
                 category: componentMap[normalizedTagName] ? 'component' : 'fallback',
                 payload: blockStore.getPayload(blockId)
             });
-            nodes.push(renderTagNode(match[1], content, isClosed, blockId));
+            nodes.push(renderTagNode(match[1], attrs, content, isClosed, blockId));
             lastIndex = FAST_MODE_TAG_REGEX.lastIndex;
         }
 
@@ -444,7 +501,9 @@ export const createStreamContainsRender = (
         let textCounter = 0;
         const reconstructRawHTML = (node: StackNode | string): string => {
             if (typeof node === 'string') return node;
-            return `<${node.tagName}>${node.children.map(reconstructRawHTML).join('')}</${node.tagName}>`;
+            const attrs = serializeAttrs(node.attrs);
+            const openingTag = attrs ? `<${node.tagName} ${attrs}>` : `<${node.tagName}>`;
+            return `${openingTag}${node.children.map(reconstructRawHTML).join('')}</${node.tagName}>`;
         };
 
         const blocks: StreamBlockData[] = [];
@@ -487,6 +546,7 @@ export const createStreamContainsRender = (
             blocks.push({
                 id: blockId,
                 tagName: normalizedTagName,
+                attrs: hasAttrs(node.attrs) ? node.attrs : undefined,
                 content: node.children.map(reconstructRawHTML).join(''),
                 isClosed: node.isClosed ?? false,
                 category: componentMap[normalizedTagName] ? 'component' : 'fallback',
@@ -494,6 +554,7 @@ export const createStreamContainsRender = (
             });
             return renderTagNode(
                 node.tagName,
+                node.attrs,
                 node.children.map(reconstructRawHTML).join(''),
                 node.isClosed ?? false,
                 blockId,

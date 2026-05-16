@@ -56,6 +56,10 @@ export const DefaultTag = defineComponent({
             type: String,
             default: ''
         },
+        attrs: {
+            type: Object,
+            default: undefined
+        },
         isClosed: {
             type: Boolean,
             default: true

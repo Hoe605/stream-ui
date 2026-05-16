@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, defineComponent, Fragment } from 'vue';
-import { buildComponentMap, createStreamContainsRender } from '../src/core/stream-contains-core';
+import { buildComponentMap, createStreamContainsRender, parseTagAttrs } from '../src/core/stream-contains-core';
 
 // 模拟组件
 const MockComponent = defineComponent({
     name: 'MockComponent',
-    props: ['block', 'content', 'isClosed', 'reportData'],
+    props: ['block', 'attrs', 'content', 'isClosed', 'reportData'],
     render() {
         return h('div', { class: 'mock-component' }, this.$slots.default?.() || 'mock');
     }
@@ -13,7 +13,7 @@ const MockComponent = defineComponent({
 
 const DefaultTag = defineComponent({
     name: 'DefaultTag',
-    props: ['block', 'tagName', 'content', 'isClosed', 'reportData'],
+    props: ['block', 'tagName', 'attrs', 'content', 'isClosed', 'reportData'],
     render() {
         return h('div', { class: `default-tag-${this.tagName}` }, this.$slots.default?.() || this.content);
     }
@@ -21,13 +21,24 @@ const DefaultTag = defineComponent({
 
 const BaseComponent = defineComponent({
     name: 'BaseComponent',
-    props: ['block', 'tagName', 'content', 'isClosed', 'reportData'],
+    props: ['block', 'tagName', 'attrs', 'content', 'isClosed', 'reportData'],
     render() {
         return h('section', { class: `base-${this.tagName}` }, this.$slots.default?.());
     }
 });
 
 describe('stream-contains-core', () => {
+    describe('parseTagAttrs', () => {
+        it('应该解析双引号、单引号、无引号和布尔属性', () => {
+            expect(parseTagAttrs('<code lang="ts" theme=\'dark\' line=12 disabled>')).toEqual({
+                lang: 'ts',
+                theme: 'dark',
+                line: '12',
+                disabled: true
+            });
+        });
+    });
+
     describe('buildComponentMap', () => {
         it('应该能从插槽中正确映射组件', () => {
             const vnode = h(MockComponent);
@@ -100,6 +111,44 @@ describe('stream-contains-core', () => {
             
             expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
                 expect.objectContaining({ tagName: 'br', isClosed: true })
+            ]));
+        });
+
+        it('accurate 模式应该把标签属性传给组件和结构化数据', async () => {
+            const props = { modelValue: '<mock-component lang="ts" live>code</mock-component>', mode: 'accurate' as const };
+            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+            const vnode = render();
+            const mockVNode = vnode.children[0];
+
+            expect(mockVNode.props.attrs).toEqual({ lang: 'ts', live: true });
+            expect(mockVNode.props.block.attrs).toEqual({ lang: 'ts', live: true });
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+                expect.objectContaining({
+                    tagName: 'mock-component',
+                    attrs: { lang: 'ts', live: true }
+                })
+            ]));
+        });
+
+        it('fast 模式应该把标签属性传给组件和结构化数据', async () => {
+            const props = { modelValue: '<mock-component lang="ts">code</mock-component>', mode: 'fast' as const };
+            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+            const vnode = render();
+            const mockVNode = vnode.children[0];
+
+            expect(mockVNode.props.attrs).toEqual({ lang: 'ts' });
+            expect(mockVNode.props.block.attrs).toEqual({ lang: 'ts' });
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+                expect.objectContaining({
+                    tagName: 'mock-component',
+                    attrs: { lang: 'ts' }
+                })
             ]));
         });
 
@@ -194,8 +243,25 @@ describe('stream-contains-core', () => {
 
             expect(baseVNode.type).toBe(BaseComponent);
             expect(baseVNode.props.tagName).toBe('mock-component');
+            expect(baseVNode.props.attrs).toBeUndefined();
             expect(childVNode.type).toBe(MockComponent);
             expect(childVNode.props.block.category).toBe('component');
+        });
+
+        it('baseComponent 应该收到标签属性', () => {
+            const props = {
+                modelValue: '<mock-component kind="answer">world</mock-component>',
+                mode: 'accurate' as const,
+                baseComponent: BaseComponent
+            };
+            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+            const vnode = render();
+            const baseVNode = vnode.children[0];
+            const childVNode = baseVNode.children.default()[0];
+
+            expect(baseVNode.props.attrs).toEqual({ kind: 'answer' });
+            expect(baseVNode.props.block.attrs).toEqual({ kind: 'answer' });
+            expect(childVNode.props.attrs).toEqual({ kind: 'answer' });
         });
 
         it('应该能用 baseComponent 包装 fallback 组件', () => {

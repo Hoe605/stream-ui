@@ -43,6 +43,7 @@ const message = ref('<think>正在思考...</think><text>最终回答内容</tex
 
 传递给子组件的辅助 Props：
 
+- `attrs?: Record<string, string | boolean>`：标签属性，例如 `<code lang="ts">`。
 - `content?: string`：标签内的内容。
 - `isClosed?: boolean`：标签是否已闭合。
 

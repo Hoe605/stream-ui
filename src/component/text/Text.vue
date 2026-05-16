@@ -12,6 +12,7 @@ defineOptions({
 })
 
 defineProps<{
+  attrs?: Record<string, string | boolean>
   content?: string
   isClosed?: boolean
   block?: StreamBlockData

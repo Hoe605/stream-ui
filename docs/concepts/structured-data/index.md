@@ -32,6 +32,8 @@ interface StreamBlockData {
   category: 'component' | 'fallback' | 'text'
   /** 原始标签名称 */
   tagName: string
+  /** 标签属性 */
+  attrs?: Record<string, string | boolean>
   /** 内部内容 */
   content: string
   /** 是否已闭合 */

@@ -18,6 +18,8 @@ defineOptions({
 })
 
 withDefaults(defineProps<{
+  /** 标签属性 */
+  attrs?: Record<string, string | boolean>
   /** 标签内部的原始内容 */
   content?: string
   /** 当前标签是否已经闭合 */

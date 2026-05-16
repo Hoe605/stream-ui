@@ -44,6 +44,7 @@ const message = ref('<think>drafting...</think><text>final answer</text>')
 Supported props passed into child components:
 
 - `block?: { id; tagName; content; isClosed; category; payload }`
+- `attrs?: Record<string, string | boolean>`
 - `content?: string`
 - `isClosed?: boolean`
 - `reportData?: (payload) => void`

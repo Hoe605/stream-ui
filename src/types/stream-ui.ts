@@ -2,10 +2,12 @@ import type { Component } from 'vue';
 
 export type RenderMode = 'fast' | 'accurate';
 export type StreamBlockCategory = 'component' | 'fallback' | 'text';
+export type StreamBlockAttrs = Record<string, string | boolean>;
 
 export interface StreamBlockData {
     id: string;
     tagName: string;
+    attrs?: StreamBlockAttrs;
     content: string;
     isClosed: boolean;
     category: StreamBlockCategory;
@@ -23,6 +25,7 @@ export interface StreamContainsProps {
 
 export interface StackNode {
     tagName: string;
+    attrs?: StreamBlockAttrs;
     children: (StackNode | string)[];
     isClosed?: boolean;
 }
@@ -32,6 +35,7 @@ export type ComponentMap = Record<string, Component>;
 export interface StreamBlockBaseProps {
     block: StreamBlockData;
     tagName: string;
+    attrs?: StreamBlockAttrs;
     content: string;
     isClosed: boolean;
     reportData: StreamBlockReporter;

@@ -53,6 +53,7 @@ import { StreamContains } from '@huiol/stream-ui'
 | 属性名 | 类型 | 说明 |
 | --- | --- | --- |
 | `block` | `StreamBlockData` | 当前区块在整个流中的完整元数据对象。 |
+| `attrs` | `Record<string, string \| boolean>` | 当前标签上的属性。普通文本没有 attrs。 |
 | `content` | `string` | 标签内部的字符串内容（随着流式输出实时增长）。 |
 | `isClosed` | `boolean` | 当前标签是否已完成解析并成功闭合。 |
 | `reportData` | `(data: any) => void` | **核心交互接口**。调用此函数可将子组件内部状态上报至 `block.payload`。 |
@@ -67,6 +68,7 @@ import { StreamContains } from '@huiol/stream-ui'
 interface StreamBlockData {
   id: string;          // 唯一标识符，在流式追加过程中保持不变
   tagName: string;     // 匹配到的标签名（不带括号）
+  attrs?: Record<string, string | boolean>; // 标签属性，如 <code lang="ts">
   content: string;     // 标签内部的原始内容
   isClosed: boolean;   // 该标签是否已经完全输出完毕
   category: 'component' | 'fallback' | 'text'; // 标识自定义组件、普通降级标签或标签外文本

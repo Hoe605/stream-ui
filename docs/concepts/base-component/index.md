@@ -43,6 +43,7 @@ const MarkdownBase = defineComponent({
 | --- | --- | --- |
 | `block` | `StreamBlockData` | 当前区块的结构化数据。普通文本的 `category` 为 `text`。 |
 | `tagName` | `string` | 标签名。普通文本固定为 `text`。 |
+| `attrs` | `Record<string, string \| boolean>` | 标签属性。普通文本没有 attrs。 |
 | `content` | `string` | 当前区块的原始内容。 |
 | `isClosed` | `boolean` | 区块是否闭合。普通文本恒为 `true`。 |
 | `reportData` | `(payload: unknown) => void` | 将 base 层产生的数据写回 `block.payload`。 |

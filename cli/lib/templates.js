@@ -56,11 +56,13 @@ defineProps<{
   block?: {
     id: string
     tagName: string
+    attrs?: Record<string, string | boolean>
     content: string
     isClosed: boolean
-    category: 'component' | 'fallback'
+    category: 'component' | 'fallback' | 'text'
     payload?: unknown
   }
+  attrs?: Record<string, string | boolean>
   content?: string
   isClosed?: boolean
   reportData?: (payload: unknown) => void

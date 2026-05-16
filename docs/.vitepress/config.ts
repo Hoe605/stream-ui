@@ -28,6 +28,7 @@ export default defineConfig({
           { text: '标签拦截', link: '/concepts/tag-interception/' },
           { text: '结构化数据抽取', link: '/concepts/structured-data/' },
           { text: '公共 Base 组件扩展', link: '/concepts/base-component/' },
+          { text: '流式 Playground', link: '/concepts/playground/' },
         ]
       },
       {

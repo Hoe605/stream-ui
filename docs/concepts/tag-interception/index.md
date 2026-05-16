@@ -28,13 +28,25 @@ Stream UI 会自动管理组件名与标签名的映射。它同时支持 `Pasca
 
 ## 属性解析规则 (Attributes)
 
-Stream UI 的解析引擎不仅能识别标签名，还能提取标签上的属性（Attributes），并将其通过 `block.props` 传递给子组件。
+Stream UI 的解析引擎不仅能识别标签名，还能提取标签上的属性（Attributes），并将其通过 `attrs` 和 `block.attrs` 传递给子组件。
 
-- **语法**: 支持 `<tag key="value">` 格式。
+- **语法**: 支持 `<tag key="value">`、`<tag key='value'>`、`<tag key=value>` 和布尔属性 `<tag disabled>`。
 - **动态性**: 在流式输出过程中，一旦起始标签解析完成，其属性即变为**不可变状态**。
 
 > [!TIP]
 > 建议将非交互的配置信息（如：`type="warning"`、`language="javascript"`）通过标签属性传入。
+
+```vue
+<script setup lang="ts">
+defineProps<{
+  attrs?: Record<string, string | boolean>
+}>()
+</script>
+
+<template>
+  <pre :data-lang="attrs?.lang"><slot /></pre>
+</template>
+```
 
 ---
 
