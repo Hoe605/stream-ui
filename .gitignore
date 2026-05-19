@@ -11,6 +11,9 @@ node_modules/
 docs/node_modules/
 .pnpm-store/
 
+# Coverage reports
+coverage/
+
 # Build outputs
 dist/
 docs/.vitepress/dist/

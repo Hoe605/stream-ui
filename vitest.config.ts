@@ -6,5 +6,12 @@ export default mergeConfig(viteConfig, defineConfig({
         root: '.',
         environment: 'happy-dom',
         include: ['tests/**/*.{test,spec}.ts'],
+        coverage: {
+            provider: 'v8',
+            enabled: false,
+            thresholds: {
+                branches: 100,
+            },
+        },
     },
 }));

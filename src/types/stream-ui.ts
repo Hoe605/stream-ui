@@ -27,7 +27,7 @@ export interface StackNode {
     tagName: string;
     attrs?: StreamBlockAttrs;
     children: (StackNode | string)[];
-    isClosed?: boolean;
+    isClosed: boolean;
 }
 
 export type ComponentMap = Record<string, Component>;

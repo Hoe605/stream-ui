@@ -51,9 +51,7 @@ export function createUnifiedDiff(existingContent, nextContent, fileLabel) {
     const incomingLine = nextLines[index];
 
     if (currentLine === incomingLine) {
-      if (currentLine !== undefined) {
-        lines.push(` ${currentLine}`);
-      }
+      lines.push(` ${currentLine}`);
       continue;
     }
 

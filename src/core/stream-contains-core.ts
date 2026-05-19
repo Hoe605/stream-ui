@@ -62,7 +62,6 @@ export const parseTagAttrs = (tagSource: string): StreamBlockAttrs => {
     ATTR_REGEX.lastIndex = 0;
     while ((match = ATTR_REGEX.exec(attrsSource)) !== null) {
         const [, name, doubleQuoted, singleQuoted, unquoted] = match;
-        if (!name) continue;
         attrs[name] = doubleQuoted ?? singleQuoted ?? unquoted ?? true;
     }
 
@@ -286,9 +285,8 @@ const createBlockStore = (
         isEmitScheduled = true;
         queueMicrotask(() => {
             isEmitScheduled = false;
-            if (!scheduledBlocks) return;
-            lastEmittedBlocks = scheduledBlocks;
-            emit('update:data', scheduledBlocks);
+            lastEmittedBlocks = scheduledBlocks!;
+            emit('update:data', scheduledBlocks!);
         });
     };
 
@@ -548,7 +546,7 @@ export const createStreamContainsRender = (
                 tagName: normalizedTagName,
                 attrs: hasAttrs(node.attrs) ? node.attrs : undefined,
                 content: node.children.map(reconstructRawHTML).join(''),
-                isClosed: node.isClosed ?? false,
+                isClosed: node.isClosed,
                 category: componentMap[normalizedTagName] ? 'component' : 'fallback',
                 payload: blockStore.getPayload(blockId)
             });
@@ -556,7 +554,7 @@ export const createStreamContainsRender = (
                 node.tagName,
                 node.attrs,
                 node.children.map(reconstructRawHTML).join(''),
-                node.isClosed ?? false,
+                node.isClosed,
                 blockId,
                 childrenNodes
             );

@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, defineComponent, Fragment } from 'vue';
-import { buildComponentMap, createStreamContainsRender, parseTagAttrs } from '../src/core/stream-contains-core';
+import {
+    buildComponentMap,
+    createStreamContainsRender,
+    parseTagAttrs,
+    parseAccurateStream,
+    getOpeningTagSource,
+    streamContainsProps,
+} from '../src/core/stream-contains-core';
 
-// 模拟组件
 const MockComponent = defineComponent({
     name: 'MockComponent',
     props: ['block', 'attrs', 'content', 'isClosed', 'reportData'],
@@ -27,277 +33,633 @@ const BaseComponent = defineComponent({
     }
 });
 
-describe('stream-contains-core', () => {
-    describe('parseTagAttrs', () => {
-        it('应该解析双引号、单引号、无引号和布尔属性', () => {
-            expect(parseTagAttrs('<code lang="ts" theme=\'dark\' line=12 disabled>')).toEqual({
-                lang: 'ts',
-                theme: 'dark',
-                line: '12',
-                disabled: true
-            });
+describe('streamContainsProps', () => {
+    it('data prop default returns empty array', () => {
+        const arr = (streamContainsProps.data.default as () => [])();
+        expect(arr).toEqual([]);
+    });
+});
+
+describe('getOpeningTagSource', () => {
+    it('extracts opening tag from source', () => {
+        expect(getOpeningTagSource('<div lang="ts">content</div>')).toBe('<div lang="ts">');
+    });
+
+    it('returns empty for non-tag source', () => {
+        expect(getOpeningTagSource('plain text')).toBe('');
+    });
+});
+
+describe('parseTagAttrs', () => {
+    it('parses double-quoted, single-quoted, unquoted, and boolean attributes', () => {
+        expect(parseTagAttrs('<code lang="ts" theme=\'dark\' line=12 disabled>')).toEqual({
+            lang: 'ts',
+            theme: 'dark',
+            line: '12',
+            disabled: true
         });
     });
 
-    describe('buildComponentMap', () => {
-        it('应该能从插槽中正确映射组件', () => {
-            const vnode = h(MockComponent);
-            const map = buildComponentMap([vnode]);
-            
-            expect(map['mockcomponent']).toBe(MockComponent);
-            expect(map['mock-component']).toBe(MockComponent);
-        });
-
-        it('应该处理嵌套的 Fragment 和数组', () => {
-            const vnode = h(Fragment, [h(MockComponent)]);
-            const map = buildComponentMap([[vnode]]);
-            expect(map['mock-component']).toBe(MockComponent);
-        });
+    it('handles closing tag', () => {
+        expect(parseTagAttrs('</div>')).toEqual({});
     });
 
-    describe('createStreamContainsRender', () => {
-        let emit: any;
-        let options: any;
+    it('handles tag with no attrs', () => {
+        expect(parseTagAttrs('<div>')).toEqual({});
+    });
+});
 
-        beforeEach(() => {
-            emit = vi.fn();
-            options = {
-                DefaultTag,
-                emit
-            };
-            vi.clearAllMocks();
+describe('buildComponentMap', () => {
+    it('maps components from slots by name', () => {
+        const vnode = h(MockComponent);
+        const map = buildComponentMap([vnode]);
+
+        expect(map['mockcomponent']).toBe(MockComponent);
+        expect(map['mock-component']).toBe(MockComponent);
+    });
+
+    it('handles nested Fragment and arrays', () => {
+        const vnode = h(Fragment, [h(MockComponent)]);
+        const map = buildComponentMap([[vnode]]);
+        expect(map['mock-component']).toBe(MockComponent);
+    });
+
+    it('skips native HTML elements', () => {
+        const vnode = h('div');
+        const map = buildComponentMap([vnode]);
+        expect(Object.keys(map)).toHaveLength(0);
+    });
+
+    it('skips components without a name', () => {
+        const anonymous = defineComponent({
+            render() { return h('span', 'anon'); }
         });
+        const map = buildComponentMap([h(anonymous)]);
+        expect(Object.keys(map)).toHaveLength(0);
+    });
 
-        it('默认应该以 accurate 模式渲染', () => {
-            const props = { modelValue: 'hello <mock-component>world</mock-component>', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            
-            // 检查是否包含 accurate 模式的容器类名
-            expect(vnode.props.class).toContain('mode-accurate');
+    it('recursively flattens VNodes with array children', () => {
+        const Wrapper = defineComponent({
+            name: 'Wrapper',
+            render() { return h('div'); }
         });
+        const wrapper = h(Wrapper, {}, [h(MockComponent)]);
+        const map = buildComponentMap([wrapper]);
+        expect(map['wrapper']).toBe(Wrapper);
+        expect(map['mock-component']).toBe(MockComponent);
+    });
 
-        it('accurate 模式应该支持嵌套标签', () => {
-            const props = { modelValue: '<a><b>text</b></a>', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, {}, options);
-            const vnode = render();
-            
-            // 结构: root(div) -> a -> b -> text
-            const aVNode = vnode.children[0];
-            const bVNode = aVNode.children.default()[0];
-            
-            expect(aVNode.props.block.tagName).toBe('a');
-            expect(bVNode.props.block.tagName).toBe('b');
-        });
+    it('recursively flattens nested Fragment children', () => {
+        const vnode = h(Fragment, [h(Fragment, [h(MockComponent)])]);
+        const map = buildComponentMap([[vnode]]);
+        expect(map['mock-component']).toBe(MockComponent);
+    });
 
-        it('accurate 模式应该处理未闭合的标签', async () => {
-            const props = { modelValue: '<a>text', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, {}, options);
-            render();
-            
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({ tagName: 'a', isClosed: false })
-            ]));
-        });
+    it('skips non-VNode items', () => {
+        const map = buildComponentMap(['string', 42, null, undefined]);
+        expect(Object.keys(map)).toHaveLength(0);
+    });
 
-        it('应该支持自闭合标签', async () => {
-            const props = { modelValue: '<br />', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, {}, options);
-            render();
-            
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({ tagName: 'br', isClosed: true })
-            ]));
-        });
+    it('registers components using __name', () => {
+        const ScriptSetupComp = { __name: 'ScriptSetupComp', render() { return h('div'); } };
+        const map = buildComponentMap([h(ScriptSetupComp)]);
+        expect(map['scriptsetupcomp']).toBe(ScriptSetupComp);
+    });
+});
 
-        it('accurate 模式应该把标签属性传给组件和结构化数据', async () => {
-            const props = { modelValue: '<mock-component lang="ts" live>code</mock-component>', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            const mockVNode = vnode.children[0];
+describe('parseAccurateStream', () => {
+    const defaultOptions = {
+        getCrossedTagWarning: (tagName: string, closedTags: string[]) =>
+            `Crossed: </${tagName}> closed <${closedTags.join('>, <')}>`,
+        getIsolatedClosingTagWarning: (tagName: string) =>
+            `Isolated: </${tagName}>`,
+        warnedParserMessages: new Set<string>(),
+    };
 
-            expect(mockVNode.props.attrs).toEqual({ lang: 'ts', live: true });
-            expect(mockVNode.props.block.attrs).toEqual({ lang: 'ts', live: true });
+    it('parses nested tags', () => {
+        const { root } = parseAccurateStream('<a><b>text</b></a>', defaultOptions);
+        const a = root.children[0] as any;
+        expect(a.tagName).toBe('a');
+        const b = a.children[0] as any;
+        expect(b.tagName).toBe('b');
+        expect(b.children[0]).toBe('text');
+    });
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+    it('detects crossed tags', () => {
+        const options = {
+            ...defaultOptions,
+            warnedParserMessages: new Set<string>(),
+        };
+        const { root, currentWarnings } = parseAccurateStream('<a><b></a></b>', options);
+        expect(currentWarnings.length).toBeGreaterThan(0);
+        expect(currentWarnings[0]).toContain('Crossed');
+    });
 
-            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({
-                    tagName: 'mock-component',
-                    attrs: { lang: 'ts', live: true }
-                })
-            ]));
-        });
+    it('detects isolated closing tags', () => {
+        const options = {
+            ...defaultOptions,
+            warnedParserMessages: new Set<string>(),
+        };
+        const { currentWarnings } = parseAccurateStream('<a></b>', options);
+        expect(currentWarnings.length).toBeGreaterThan(0);
+        expect(currentWarnings[0]).toContain('Isolated');
+    });
 
-        it('fast 模式应该把标签属性传给组件和结构化数据', async () => {
-            const props = { modelValue: '<mock-component lang="ts">code</mock-component>', mode: 'fast' as const };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            const mockVNode = vnode.children[0];
+    it('deduplicates warnings', () => {
+        const options = {
+            ...defaultOptions,
+            warnedParserMessages: new Set<string>(),
+        };
+        const { currentWarnings } = parseAccurateStream('<a></b><a></b>', options);
+        expect(currentWarnings.length).toBe(1);
+    });
 
-            expect(mockVNode.props.attrs).toEqual({ lang: 'ts' });
-            expect(mockVNode.props.block.attrs).toEqual({ lang: 'ts' });
+    it('deduplicates crossed tag warnings', () => {
+        const options = {
+            ...defaultOptions,
+            warnedParserMessages: new Set<string>(),
+        };
+        const { currentWarnings } = parseAccurateStream('<a><b></a><a><b></a>', options);
+        expect(currentWarnings.length).toBe(1);
+    });
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+    it('handles self-closing tag with / > space', () => {
+        const { root } = parseAccurateStream('<br / >', defaultOptions);
+        const br = root.children[0] as any;
+        expect(br.tagName).toBe('br');
+        expect(br.isClosed).toBe(true);
+    });
 
-            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({
-                    tagName: 'mock-component',
-                    attrs: { lang: 'ts' }
-                })
-            ]));
-        });
+    it('captures text after last tag', () => {
+        const { root } = parseAccurateStream('<a>x</a>trailing', defaultOptions);
+        const a = root.children[0] as any;
+        expect(a.tagName).toBe('a');
+        expect(a.children[0]).toBe('x');
+        expect(root.children[1]).toBe('trailing');
+    });
 
-        it('应该能更新 payload 并重新 emit blocks', async () => {
-            const props = { modelValue: '<mock />', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            
-            // 找到渲染的组件并调用 reportData
-            const mockVNode = vnode.children[0];
-            const reportData = mockVNode.props.reportData;
-            const blockId = mockVNode.props.block.id;
-            
-            reportData({ status: 'done' });
-            
-            // 等待微任务执行 (queueMicrotask)
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            expect(emit).toHaveBeenLastCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({ id: blockId, payload: { status: 'done' } })
-            ]));
-        });
+    it('handles text with no tags', () => {
+        const { root } = parseAccurateStream('just text', defaultOptions);
+        expect(root.children[0]).toBe('just text');
+    });
+});
 
-        it('应该支持 fast 模式', async () => {
-            const props = { modelValue: '<tag>content</tag>', mode: 'fast' as const };
-            const render = createStreamContainsRender(props, {}, options);
-            const vnode = render();
-            
-            expect(vnode.props.class).toContain('mode-fast');
-            
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({ tagName: 'tag', content: 'content' })
-            ]));
-        });
+describe('createStreamContainsRender', () => {
+    let emit: any;
+    let options: any;
 
-        it('文本内容应该保持 pre-wrap 样式', () => {
-            const props = { modelValue: 'some text', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, {}, options);
-            const vnode = render();
-            
-            const textNode = vnode.children[0];
-            expect(textNode.props.style).toEqual({ whiteSpace: 'pre-wrap' });
-        });
+    beforeEach(() => {
+        emit = vi.fn();
+        options = {
+            DefaultTag,
+            emit
+        };
+        vi.clearAllMocks();
+    });
 
-        it('纯文本内容应该能用 baseComponent 包装', () => {
-            const props = {
-                modelValue: 'plain **markdown** text',
-                mode: 'accurate' as const,
-                baseComponent: BaseComponent
-            };
-            const render = createStreamContainsRender(props, {}, options);
-            const vnode = render();
-            const baseVNode = vnode.children[0];
-            const childVNode = baseVNode.children.default()[0];
+    it('renders empty div when no text and no components', () => {
+        const props = { modelValue: '', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        expect(vnode.props.class).toBe('stream-content');
+    });
 
-            expect(baseVNode.type).toBe(BaseComponent);
-            expect(baseVNode.props.tagName).toBe('text');
-            expect(baseVNode.props.block.category).toBe('text');
-            expect(baseVNode.props.content).toBe('plain **markdown** text');
-            expect(childVNode.type).toBe('span');
-        });
+    it('renders in accurate mode by default', () => {
+        const props = { modelValue: 'hello <mock-component>world</mock-component>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        expect(vnode.props.class).toContain('mode-accurate');
+    });
 
-        it('纯文本内容应该同步到结构化数据', async () => {
-            const props = { modelValue: 'plain text', mode: 'accurate' as const };
-            const render = createStreamContainsRender(props, {}, options);
-            render();
+    it('accurate mode supports nested tags', () => {
+        const props = { modelValue: '<a><b>text</b></a>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        const aVNode = vnode.children[0];
+        const bVNode = aVNode.children.default()[0];
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+        expect(aVNode.props.block.tagName).toBe('a');
+        expect(bVNode.props.block.tagName).toBe('b');
+    });
 
-            expect(emit).toHaveBeenCalledWith('update:data', [
-                expect.objectContaining({
-                    tagName: 'text',
-                    content: 'plain text',
-                    isClosed: true,
-                    category: 'text'
-                })
-            ]);
-        });
+    it('accurate mode serializes attrs on nested child tags', () => {
+        const props = { modelValue: '<outer><inner lang="ts">code</inner></outer>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        const outer = vnode.children[0];
+        const inner = outer.children.default()[0];
 
-        it('应该能用 baseComponent 包装已注册组件', () => {
-            const props = {
-                modelValue: '<mock-component>world</mock-component>',
-                mode: 'accurate' as const,
-                baseComponent: BaseComponent
-            };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            const baseVNode = vnode.children[0];
-            const childVNode = baseVNode.children.default()[0];
+        expect(outer.props.block.tagName).toBe('outer');
+        expect(inner.props.block.tagName).toBe('inner');
+        expect(inner.props.attrs).toEqual({ lang: 'ts' });
+    });
 
-            expect(baseVNode.type).toBe(BaseComponent);
-            expect(baseVNode.props.tagName).toBe('mock-component');
-            expect(baseVNode.props.attrs).toBeUndefined();
-            expect(childVNode.type).toBe(MockComponent);
-            expect(childVNode.props.block.category).toBe('component');
-        });
+    it('accurate mode handles unclosed tags', async () => {
+        const props = { modelValue: '<a>text', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
 
-        it('baseComponent 应该收到标签属性', () => {
-            const props = {
-                modelValue: '<mock-component kind="answer">world</mock-component>',
-                mode: 'accurate' as const,
-                baseComponent: BaseComponent
-            };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            const baseVNode = vnode.children[0];
-            const childVNode = baseVNode.children.default()[0];
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(baseVNode.props.attrs).toEqual({ kind: 'answer' });
-            expect(baseVNode.props.block.attrs).toEqual({ kind: 'answer' });
-            expect(childVNode.props.attrs).toEqual({ kind: 'answer' });
-        });
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ tagName: 'a', isClosed: false })
+        ]));
+    });
 
-        it('应该能用 baseComponent 包装 fallback 组件', () => {
-            const props = {
-                modelValue: '<unknown>tag content</unknown>',
-                mode: 'accurate' as const,
-                baseComponent: BaseComponent
-            };
-            const render = createStreamContainsRender(props, {}, options);
-            const vnode = render();
-            const baseVNode = vnode.children[0];
-            const childVNode = baseVNode.children.default()[0];
+    it('supports self-closing tags', async () => {
+        const props = { modelValue: '<br />', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
 
-            expect(baseVNode.type).toBe(BaseComponent);
-            expect(baseVNode.props.tagName).toBe('unknown');
-            expect(childVNode.type).toBe(DefaultTag);
-            expect(childVNode.props.block.category).toBe('fallback');
-        });
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-        it('baseComponent 应该能通过 reportData 更新 payload', async () => {
-            const props = {
-                modelValue: '<mock />',
-                mode: 'accurate' as const,
-                baseComponent: BaseComponent
-            };
-            const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
-            const vnode = render();
-            const baseVNode = vnode.children[0];
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ tagName: 'br', isClosed: true })
+        ]));
+    });
 
-            baseVNode.props.reportData({ rendered: 'markdown' });
+    it('accurate mode passes attrs to component and structured data', async () => {
+        const props = { modelValue: '<mock-component lang="ts" live>code</mock-component>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        const mockVNode = vnode.children[0];
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+        expect(mockVNode.props.attrs).toEqual({ lang: 'ts', live: true });
+        expect(mockVNode.props.block.attrs).toEqual({ lang: 'ts', live: true });
 
-            expect(emit).toHaveBeenLastCalledWith('update:data', expect.arrayContaining([
-                expect.objectContaining({ id: baseVNode.props.block.id, payload: { rendered: 'markdown' } })
-            ]));
-        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({
+                tagName: 'mock-component',
+                attrs: { lang: 'ts', live: true }
+            })
+        ]));
+    });
+
+    it('fast mode passes attrs to component and structured data', async () => {
+        const props = { modelValue: '<mock-component lang="ts">code</mock-component>', mode: 'fast' as const };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        const mockVNode = vnode.children[0];
+
+        expect(mockVNode.props.attrs).toEqual({ lang: 'ts' });
+        expect(mockVNode.props.block.attrs).toEqual({ lang: 'ts' });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({
+                tagName: 'mock-component',
+                attrs: { lang: 'ts' }
+            })
+        ]));
+    });
+
+    it('emits block updates via reportData', async () => {
+        const props = { modelValue: '<mock />', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+
+        const mockVNode = vnode.children[0];
+        const reportData = mockVNode.props.reportData;
+        const blockId = mockVNode.props.block.id;
+
+        reportData({ status: 'done' });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenLastCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ id: blockId, payload: { status: 'done' } })
+        ]));
+    });
+
+    it('supports fast mode', async () => {
+        const props = { modelValue: '<tag>content</tag>', mode: 'fast' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+
+        expect(vnode.props.class).toContain('mode-fast');
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ tagName: 'tag', content: 'content' })
+        ]));
+    });
+
+    it('text content has pre-wrap style', () => {
+        const props = { modelValue: 'some text', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+
+        const textNode = vnode.children[0];
+        expect(textNode.props.style).toEqual({ whiteSpace: 'pre-wrap' });
+    });
+
+    it('text content can be wrapped by baseComponent', () => {
+        const props = {
+            modelValue: 'plain **markdown** text',
+            mode: 'accurate' as const,
+            baseComponent: BaseComponent
+        };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        const baseVNode = vnode.children[0];
+        const childVNode = baseVNode.children.default()[0];
+
+        expect(baseVNode.type).toBe(BaseComponent);
+        expect(baseVNode.props.tagName).toBe('text');
+        expect(baseVNode.props.block.category).toBe('text');
+        expect(baseVNode.props.content).toBe('plain **markdown** text');
+        expect(childVNode.type).toBe('span');
+
+        baseVNode.children.raw();
+    });
+
+    it('text content syncs to structured data', async () => {
+        const props = { modelValue: 'plain text', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledWith('update:data', [
+            expect.objectContaining({
+                tagName: 'text',
+                content: 'plain text',
+                isClosed: true,
+                category: 'text'
+            })
+        ]);
+    });
+
+    it('wraps registered component with baseComponent', () => {
+        const props = {
+            modelValue: '<mock-component>world</mock-component>',
+            mode: 'accurate' as const,
+            baseComponent: BaseComponent
+        };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        const baseVNode = vnode.children[0];
+        const childVNode = baseVNode.children.default()[0];
+
+        expect(baseVNode.type).toBe(BaseComponent);
+        expect(baseVNode.props.tagName).toBe('mock-component');
+        expect(baseVNode.props.attrs).toBeUndefined();
+        expect(childVNode.type).toBe(MockComponent);
+        expect(childVNode.props.block.category).toBe('component');
+
+        baseVNode.children.raw();
+    });
+
+    it('baseComponent receives tag attributes', () => {
+        const props = {
+            modelValue: '<mock-component kind="answer">world</mock-component>',
+            mode: 'accurate' as const,
+            baseComponent: BaseComponent
+        };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        const baseVNode = vnode.children[0];
+        const childVNode = baseVNode.children.default()[0];
+
+        expect(baseVNode.props.attrs).toEqual({ kind: 'answer' });
+        expect(baseVNode.props.block.attrs).toEqual({ kind: 'answer' });
+        expect(childVNode.props.attrs).toEqual({ kind: 'answer' });
+    });
+
+    it('wraps fallback component with baseComponent', () => {
+        const props = {
+            modelValue: '<unknown>tag content</unknown>',
+            mode: 'accurate' as const,
+            baseComponent: BaseComponent
+        };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        const baseVNode = vnode.children[0];
+        const childVNode = baseVNode.children.default()[0];
+
+        expect(baseVNode.type).toBe(BaseComponent);
+        expect(baseVNode.props.tagName).toBe('unknown');
+        expect(childVNode.type).toBe(DefaultTag);
+        expect(childVNode.props.block.category).toBe('fallback');
+
+        baseVNode.children.raw();
+    });
+
+    it('baseComponent reportData updates payload', async () => {
+        const props = {
+            modelValue: '<mock />',
+            mode: 'accurate' as const,
+            baseComponent: BaseComponent
+        };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        const baseVNode = vnode.children[0];
+
+        baseVNode.props.reportData({ rendered: 'markdown' });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenLastCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ id: baseVNode.props.block.id, payload: { rendered: 'markdown' } })
+        ]));
+    });
+
+    it('fast mode handles text before and after tags', async () => {
+        const props = { modelValue: 'pre<tag>mid</tag>post', mode: 'fast' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+
+        expect(vnode.props.class).toContain('mode-fast');
+        expect(vnode.children.length).toBe(3);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ tagName: 'text', content: 'pre' }),
+            expect.objectContaining({ tagName: 'tag', content: 'mid' }),
+            expect.objectContaining({ tagName: 'text', content: 'post' }),
+        ]));
+    });
+
+    it('preserves payload from initial data across renders', () => {
+        const props = {
+            modelValue: '<mock />',
+            mode: 'accurate' as const,
+            data: [{ id: 'acc-1', tagName: 'mock', content: '', isClosed: false, category: 'component' as const, payload: { cached: true } }]
+        };
+        const render = createStreamContainsRender(props, { default: () => [h(MockComponent)] }, options);
+        const vnode = render();
+        const mockVNode = vnode.children[0];
+
+        expect(mockVNode.props.block.payload).toEqual({ cached: true });
+    });
+
+    it('shows parser warnings for crossed tags in accurate mode', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+
+        const props = { modelValue: '<a><b></a></b>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, { DefaultTag, emit: vi.fn() });
+        render();
+
+        expect(warnSpy).toHaveBeenCalled();
+        groupSpy.mockRestore();
+        warnSpy.mockRestore();
+    });
+
+    it('shows parser warnings for isolated closing tags in accurate mode', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+
+        const props = { modelValue: '<a></b>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, { DefaultTag, emit: vi.fn() });
+        render();
+
+        expect(warnSpy).toHaveBeenCalled();
+        groupSpy.mockRestore();
+        warnSpy.mockRestore();
+    });
+
+    it('skips duplicate emit when blocks have not changed', async () => {
+        const props = { modelValue: 'static text', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips emit when blocks with same attrs', async () => {
+        const props = { modelValue: '<tag lang="ts">content</tag>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        emit.mockClear();
+
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledTimes(0);
+    });
+
+    it('emits again when attrs differ between renders', async () => {
+        const props = { modelValue: '<tag lang="ts">content</tag>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        emit.mockClear();
+
+        props.modelValue = '<tag>content</tag>';
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('emits again when attr values differ between renders', async () => {
+        const props = { modelValue: '<tag lang="ts">content</tag>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        emit.mockClear();
+
+        props.modelValue = '<tag lang="js">content</tag>';
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('emits again when attr count differs between renders', async () => {
+        const props = { modelValue: '<tag lang="ts">content</tag>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        emit.mockClear();
+
+        props.modelValue = '<tag lang="ts" extra="val">content</tag>';
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('serializes boolean attributes in nested tag content', async () => {
+        const props = { modelValue: '<div><span disabled>text</span></div>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(emit).toHaveBeenCalledWith('update:data', expect.arrayContaining([
+            expect.objectContaining({ content: '<span disabled>text</span>' })
+        ]));
+    });
+
+    it('handles data entries without id or payload', () => {
+        const props = {
+            modelValue: '',
+            data: [{}, { id: 'no-payload' }, { id: 123 }]
+        };
+        const render = createStreamContainsRender(props, {}, options);
+        expect(() => render()).not.toThrow();
+    });
+
+    it('renders without emit option', () => {
+        const render = createStreamContainsRender(
+            { modelValue: '<tag>content</tag>', mode: 'accurate' as const },
+            {},
+            { DefaultTag }
+        );
+        expect(() => render()).not.toThrow();
+    });
+
+    it('updateBlockPayload handles multiple blocks', async () => {
+        const props = { modelValue: '<p><span>text</span></p>', mode: 'accurate' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+
+        const outerVNode = vnode.children[0];
+        const innerVNode = outerVNode.children.default()[0];
+        innerVNode.props.reportData({ key: 'val' });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(emit).toHaveBeenCalled();
+    });
+
+    it('handles self-closing tag in fast mode', async () => {
+        const props = { modelValue: '<br/>', mode: 'fast' as const };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        expect(vnode.props.class).toContain('mode-fast');
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(emit).toHaveBeenCalled();
+    });
+
+    it('calls reportData on text block with baseComponent', async () => {
+        const props = {
+            modelValue: 'hello',
+            mode: 'accurate' as const,
+            baseComponent: BaseComponent
+        };
+        const render = createStreamContainsRender(props, {}, options);
+        const vnode = render();
+        const baseVNode = vnode.children[0];
+
+        baseVNode.props.reportData({ rendered: 'text' });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(emit).toHaveBeenCalled();
     });
 });
